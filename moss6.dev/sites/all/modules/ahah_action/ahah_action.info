@@ -1,0 +1,9 @@
+name = "AHAH action"
+description = Allows you to specify a javaScript function to run when ahah callback completes.
+core = 6.x
+; Information added by drupal.org packaging script on 2010-09-23
+version = "6.x-1.0"
+core = "6.x"
+project = "ahah_action"
+datestamp = "1285258863"
+
