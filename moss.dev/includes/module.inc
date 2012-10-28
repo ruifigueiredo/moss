@@ -839,6 +839,7 @@ function module_invoke($module, $hook) {
  *   An array of return values of the hook implementations. If modules return
  *   arrays from their implementations, those are merged into one array.
  */
+ 
 function module_invoke_all($hook) {
   $args = func_get_args();
   // Remove $hook from the arguments.
