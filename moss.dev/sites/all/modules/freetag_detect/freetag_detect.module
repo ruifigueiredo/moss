@@ -1,0 +1,161 @@
+<?php
+/**
+ * @file
+ * Field support and integration for FreeTagging auto detection
+ */
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function freetag_detect_form_alter(&$form, &$form_state, $form_id) {
+  drupal_alter('freetag_detect_form_alter', $form, $form_state, $form_id);
+}
+
+
+/**
+ * Implements hook_element_info().
+ */
+function freetag_detect_element_info() {
+  $elements = array();
+  drupal_alter('freetag_detect_element_info', $elements);
+  return $elements;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function freetag_detect_theme($existing, $type, $theme, $path) {
+  return array(
+    'freetag_detect_field' => array(
+      'function' => 'theme_freetag_detect_field',
+      'render element' => 'element',
+      'file' => 'freetag_detect.theme.inc',
+    )
+  );
+}
+
+function freetag_detect_menu() {
+  // AJAX callback
+  $items['freetag_detect/getKeywords'] = array(
+    'title' => t('AJAX Callback for detecting keywords'),
+    'type' => MENU_CALLBACK,
+    'page callback' => 'freetag_detect_ajax_callback',
+    'file' => 'freetag_detect.inc',
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_wysiwyg_fields_theme_alter() on behalf of field_ui.module.
+ */
+function field_ui_freetag_detect_theme_alter(&$items) {
+  $items['freetag_detect_widget_settings_alter'] = array(
+    'render element' => 'element',
+  );
+}
+
+function field_ui_freetag_detect_form_alter_alter(&$form, $form_state, $form_id) {
+  // form alter for node form, fix in any fields that have settings for freetag_detect
+  if (isset($form['type']['#value']) && $form_id == "{$form['type']['#value']}_node_form") {
+    foreach($form_state['field'] as $field_name => $field_form) {
+      // @todo only LANGUAGE_NONE at this stage
+      if($field_form[LANGUAGE_NONE]['field']['type'] == 'taxonomy_term_reference') {
+        if(!empty($field_form[LANGUAGE_NONE]['instance']['settings']['freetag_detect']['status'])) {
+          // @todo : Drop this entirely and use jQuery to place it in
+          $form[$field_name][LANGUAGE_NONE]['#theme']='freetag_detect_field';
+        }
+      }
+    }
+  }
+
+  // form alter for field_ui
+  if ($form_id == 'field_ui_field_edit_form') {
+    // only applies to taxonomy_term_reference's
+    if ($form['#field']['type'] == 'taxonomy_term_reference' && $form['instance']['widget']['type']['#type'] == 'value') {
+      $freetag_detect = isset($form['#instance']['settings']['freetag_detect']) ? $form['#instance']['settings']['freetag_detect'] : array();
+
+      $form['instance']['settings']['freetag_detect'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('FreeTagging Auto Detection Field Settings'),
+        '#weight' => 31,
+      );
+
+      $form['instance']['settings']['freetag_detect']['status'] = array(
+        '#title' => t('Activate detecting terms from the given field (below)'),
+        '#type' => 'checkbox',
+        '#description' => t('Provides a button to detect terms to populate with'),
+        '#weight' => -1,
+        '#default_value' => isset($freetag_detect['status']) ? $freetag_detect['status'] : 0,
+      );
+
+      $form['instance']['settings']['freetag_detect']['case_sensitive'] = array(
+        '#title' => t('Case-sensitive matching'),
+        '#type' => 'checkbox',
+        '#description' => t('Toggle between case-sensitive or case-insensitive matching'),
+        '#default_value' => isset($freetag_detect['case_sensitive']) ? $freetag_detect['case_sensitive'] : 0,
+      );
+
+      // get all types of this bundle and grab the text types
+      $bundle = $form['instance']['bundle']['#value'];
+      $types = field_info_fields();
+      $options = array();
+      foreach ($types as $type_name => $type) {
+        if (array_key_exists('node', $type['bundles'])) {
+          // node types in text
+          // @todo does this need to be node only?
+          if ($type['module'] == 'text' && in_array($bundle, $type['bundles']['node'])) {
+            $options[$type_name] = $type_name;
+          }
+        }
+      }
+
+      $form['instance']['settings']['freetag_detect']['source_type'] = array(
+        '#type' => 'select',
+        '#title' => t('Field to use as source for scanning matching terms'),
+        '#options' => $options,
+        '#description' => t('Provides a button to detect terms to populate with'),
+        '#weight' => 20,
+        '#default_value' => isset($freetag_detect['source_type']) ? $freetag_detect['source_type'] : 'body',
+      );
+
+      $form['#submit'][] = '_field_ui_freetag_detect_form_alter_alter_submit';
+    }
+  }
+}
+
+/**
+ * Submit callback for Wysiwyg Fields field settings form.
+ */
+function _field_ui_freetag_detect_form_alter_alter_submit($form, &$form_state) {
+  $instance = field_info_instance($form_state['values']['instance']['entity_type'], $form_state['values']['instance']['field_name'], $form_state['values']['instance']['bundle']);
+  field_update_instance($instance);
+}
+
+/**
+ * Implements hook_field_widget_properties_alter().
+ */
+function freetag_detect_field_widget_form_alter(&$element, &$form_state, $context) {
+  if (!empty($context['instance']['settings']['freetag_detect'])) {
+    if ($context['instance']['settings']['freetag_detect']['status']) {
+      // add our widget enhancer AJAX callbacks etc
+
+      $element['#attached']['js'][] = drupal_get_path('module', 'freetag_detect') . '/freetag_detect.admin.js';
+      // set drupal setting JS for the name of the field to extend
+
+      // @todo better way to ID the field?
+      // edit-field-people-und
+      $field_id = 'edit-'.$element['#field_name'].'-'.$element['#language'];
+      $field_id = str_replace('_','-', $field_id);
+      $settings = array(
+        $field_id => array(
+          'source' => $context['instance']['settings']['freetag_detect']['source_type'],
+          'case_sensitive' => !empty($context['instance']['settings']['freetag_detect']['case_sensitive']) ? 1 : 0
+        )
+      );
+      drupal_add_js(array('freetag_detect' => $settings), 'setting');
+    }
+  }
+}
+
