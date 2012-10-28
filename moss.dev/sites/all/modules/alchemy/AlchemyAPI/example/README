@@ -2,16 +2,7 @@
 AlchemyAPI PHP SDK: version 0.8
 ===============================
 
-This is a PHP-5 implementation of the AlchemyAPI SDK.
-
-
-INSTALLATION
-
-AlchemyAPI.php - PHP-5 Module
-AlchemyAPI_CURL.php - PHP-5 + CURL Module
-
-To install this module, copy the desired AlchemyAPI PHP file into your 
-PHP include directory or project directory.
+These are PHP-5 code examples for the AlchemyAPI SDK.
 
 
 RUNNING EXAMPLES
@@ -23,7 +14,8 @@ and other tasks.
 All code samples are within the "example" directory.
 
 To run these code samples you must first edit the (example/api_key.txt) file, 
-adding your assigned Orchestr8 API key.
+adding your assigned AlchemyAPI key.  You must also install the AlchemyAPI
+PHP module (see ../README for installation instructions).
 
 Code Samples:
 
@@ -48,22 +40,11 @@ Code Samples:
   10. JSON output mode examples: php json_example.php
 
   11. Sentiment Analysis: php sentiment.php
-  
-  12. Relations Extraction: php relations.php
 
   12. API parameters object example: php entity_param_example.php
 
   13. Author Extraction: php authors.php
-
-
-DEPENDENCIES
-
-This module requires these other modules and libraries:
-
-   CURL (for PHP-5 + CURL module)
-
-   If your version of PHP does not support CURL, use the AlchemyAPI.php module.
-
+  
 
 COPYRIGHT AND LICENCE
 
