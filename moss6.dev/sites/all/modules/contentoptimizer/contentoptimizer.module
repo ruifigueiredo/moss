@@ -1,0 +1,446 @@
+<?php
+// $Id: contentoptimizer.module,v 1.10.2.3 2010/10/12 13:27:41 tomdude48 Exp $
+
+/**
+ * @file
+ * Analyzes content for search engine optimization recommendations
+ */
+
+/**
+ *  Implementation of hook_contentalalysis_analyzers()
+ *  
+ */
+function contentoptimizer_contentanalysis_analyzers() {
+  $analyzers['seo'] = array(
+    'title' => t('Quick SEO'),
+    'module' => 'contentoptimizer',
+    'callback' => 'contentoptimizer_analyzer',
+    'form elements callback' => 'contentoptimizer_analyzer_form_elements',
+    'node form submit callback' => 'contentoptimizer_node_form_submit',
+    'weight' => -5,
+  );
+  return $analyzers;  
+}
+
+/**
+ * Implementation of hook_contentanalysis_analyzer_form_elements() via custom define callback
+ */
+function contentoptimizer_analyzer_form_elements($form_state, $analysis='', $node=0) {
+  drupal_add_js(drupal_get_path('module', 'contentoptimizer') . '/contentoptimizer.js');
+  
+  $default_value = ($analysis && $analysis['#context'])?$analysis['#context']['inputs']['analyzer_options']['seo']['keyword']:'';
+
+  if ((arg(0) == 'node') && (is_numeric(arg(1)))) {
+    $aid = contentanalysis_get_aid_by_nid(arg(1));
+  }
+
+  if ($aid) {
+    $sql = '
+      SELECT keyword
+      FROM {contentoptimizer}
+      WHERE aid = %d
+    ';
+    $default_value = db_result(db_query($sql, $aid));    
+  }
+  $form['keyword'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Targeted keyword phrase'),
+      '#default_value' => $default_value,
+    ); 
+//print_r($form);
+    return $form;
+}
+
+/**
+ * Implementation of hook_contentanalysis_node_form_submit() via custom define callback
+ * 
+ * Saves keyword to database
+ */
+function contentoptimizer_node_form_submit($form, &$form_state) {
+  contentoptimizer_set_keyword(contentanalysis_get_aid_by_nid($form_state['values']['nid']), $form_state['values']['seo']['keyword']);
+}
+
+/**
+ * Saves keyword to databse
+ * 
+ * @param int $aid
+ *   analysis id of analysis keyword is associated with
+ * @param str $keyword
+ *   keyword to save
+ */
+function contentoptimizer_set_keyword($aid, $keyword) {
+  $sql = "
+    UPDATE {contentoptimizer}
+    SET keyword = '%s'
+    WHERE aid = %d
+  ";
+  db_query($sql, $keyword, $aid);
+  if (!(db_affected_rows() > 0)) {
+    $sql = "
+      INSERT INTO {contentoptimizer}
+      (aid,keyword) VALUES
+      (%d,'%s')
+    ";
+    db_query($sql, $aid, $keyword);
+  }
+}
+
+/**
+ * Fetches the node keywords from the database
+ * 
+ * @param int $aid
+ *   analysis id the keyword is associated with
+ * @return str
+ *   keyword
+ */
+function contentoptimizer_get_keyword($aid) {
+  $sql = '
+    SELECT keyword
+    FROM {contentoptimizer}
+    WHERE aid = %d
+  ';
+  return db_result(db_query($sql, $aid));
+}
+
+/**
+ * Implementation of hook_contentanalysis_analyzer() via custom define callback
+ * 
+ * Analyzes body, title, meta keywords and descriptions. 
+ * Calculates stats for each section, e.g. char count, word count, etc.
+ * Compares stats with SEO guidelines
+ * 
+ * @rerturn array
+ *   SEO analysis
+ */
+function contentoptimizer_analyzer($context, $analysis, $params) {
+//watchdog("contentoptimizer_analyzer",print_r($context,1));
+//print "context=".print_r($context,1);
+//dsm($context);
+  $a = array();
+  $stats = array();
+  $keyword = check_plain(strtolower($context['inputs']['analyzer_options']['seo']['keyword']));
+  if ($context['aid']) {
+    if ($keyword) {
+      contentoptimizer_set_keyword($context['aid'], $keyword);
+    } 
+    else {
+      $keyword = contentoptimizer_get_keyword($context['aid']);
+    }
+  }
+  $msg = '<div>Keyword: <span class="kwresearch_keyword">@keyword</span></div>';
+  $analysis['content'][] = contentanalysis_format_content(t($msg, array('@keyword' => $keyword)), -5);
+  if (!$keyword) {
+    $analysis['messages'][] = contentanalysis_format_message(t('No keyword phrase was submitted for analysis. Input a keyword for more targeted recommendations.'), 'warning'); 
+  }
+
+  // analyze body
+  $body = strtolower($context['body']);
+  $body_notags = strtolower($context['body_notags']);
+  $stats['body'] = contentoptimizer_calc_stats($body_notags, $keyword);
+  $analysis['body']['stats'] = contentoptimizer_format_stats($stats['body']);
+  
+  $body_words_min = 200;
+  $body_words_max = 800;
+  $body_frequency_min = 2;
+  $body_frequency_max = 4;
+  
+  $analysis['body']['messages'] = array();
+  if ($stats['body']['word_count'] < $body_words_min) {
+    $words = format_plural($stats['body']['word_count'], '1 word', '@count words');
+    $analysis['body']['messages'][] = contentanalysis_format_message(t('Your body should be between %min and %max words. It is currently %words. Consider increasing the number of words.', array('%min' => $body_words_min, '%max' => $body_words_max, '%words' => $words)), 'warning'); 
+  } 
+  elseif (($stats['body']['word_count'] > $body_words_max)) {
+    $words = format_plural($stats['body']['word_count'], '1 word', '@count words');
+    $analysis['body']['messages'][] = contentanalysis_format_message(t('Your body should be between %min and %max words. It is currently %words. Consider reducing the number of words.', array('%min' => $body_words_min, '%max' => $body_words_max, '%words' => $words)), 'warning'); 
+  }
+  if ($keyword) {
+    if ($stats['body']['keyword_count'] < $body_frequency_min) {
+      $freq = format_plural($stats['body']['keyword_count'], '1 time', '@count times');
+      $analysis['body']['messages'][] = contentanalysis_format_message(t('Your keyword phrase should occur in your body between %min and %max times. It currently occurs %frequency. Consider increasing the number of keyword occurences in your body copy.', array('%min' => $body_frequency_min, '%max' => $body_frequency_max, '%frequency' => $freq)), 'warning'); 
+    } 
+    elseif ($stats['body']['keyword_count'] > $body_frequency_max) {
+      $freq = format_plural($stats['body']['keyword_count'], '1 time', '@count times');
+      $analysis['body']['messages'][] = contentanalysis_format_message(t('Your keyword phrase should occur in your body between %min and %max times. It is currently occurs %frequency. Consider reducing the number of keyword occurences in your body copy.', array('%min' => $body_frequency_min, '%max' => $body_frequency_max, '%frequency' => $freq)), 'warning'); 
+    }
+    if ($stats['body']['keyword_count'] && ($stats['body']['keyword_prominence'] < 50)) {
+      $analysis['body']['messages'][] = contentanalysis_format_message(t('Your keyword prominence is less that 50%. Consider increasing your keyword\'s prominence by moving occurences closer to the beginning of your copy.'), 'warning'); 
+    }
+  } 
+  else {
+      //$analysis['body']['messages'][] = contentanalysis_format_message(t('No keyword phrase was submitted for analysis. Input a keyword for more targeted recommendations.'), 'warning'); 
+  }  
+  
+  if (count($analysis['body']['messages']) > 0) {
+    $analysis['body']['#status'] = 'warning';
+    $analysis['#status'] = 'warning';
+  } 
+  else {
+    if ($keyword) {
+      $analysis['body']['messages'][] = contentanalysis_format_message(t('Optimized'), 'complete');  
+      $analysis['body']['#status'] = 'complete';
+      $analysis['#status'] = 'complete';
+    } 
+    else {
+      $analysis['body']['#status'] = 'status';
+    }
+  }
+  // only analyze body if content is directly inputed without a full page
+  if (is_null($context['aid']) && ($context['form_id'] == 'contentanalysis_page_analyzer')) {
+    return $analysis;
+  }
+  
+  // Analyze page title
+  
+  if (!module_exists('page_title')) {    
+    $analysis['messages'][] = contentanalysis_format_message(t('The <a href="http://drupal.org/project/page_title" target="_blank">Page Title</a> module is not installed. We recommend installing it for enhanced control of page titles.'), 'warning');
+  }  
+  $check_meta = TRUE;
+  if (!module_exists('nodewords')) {
+    $check_meta = FALSE;
+    $analysis['messages'][] = contentanalysis_format_message(t('The <a href="http://drupal.org/project/nodewords" target="_blank">Meta Tags / Nodewords</a> module is not installed. We recommend installing it to enable editing of page meta information.'), 'warning');  
+  }
+  
+  //$title_char_min = 200;
+  $title_char_max = 70;
+  $title_words_min = 200;
+  $title_words_max = 800;
+  $title_frequency_min = 0;
+  $title_frequency_max = 2;
+  
+  $page_title = strtolower($context['page_title']);
+ 
+  $stats['page_title'] = contentoptimizer_calc_stats($page_title, $keyword);
+  $analysis['page_title']['stats'] = contentoptimizer_format_stats($stats['page_title']);
+  
+  $chars = format_plural($stats['page_title']['char_count'], '1 character', '@count characters');
+  $words = format_plural($stats['page_title']['word_count'], '1 word', '@count words');
+  $freq = format_plural($stats['page_title']['keyword_count'], '1 time', '@count times');
+  
+  $analysis['page_title']['messages'] = array();
+  if ($stats['page_title']['char_count'] > $title_char_max) {
+    $msg = t('Page titles should be no longer than %max characters. It is currently %chars. Consider reducing the length of your page title.', array('%max' => $title_char_max, '%chars' => $chars));
+    $analysis['page_title']['messages'][] = contentanalysis_format_message($msg, 'warning');
+  } 
+  elseif ($stats['page_title']['word_count'] > 12) {
+    $msg = t('Page titles should be no longer than %max word. It is currently %words. Consider reducing the number of words in your page title.', array('%max' => $title_word_max, '%words' => $words));
+    $analysis['page_title']['messages'][] = contentanalysis_format_message($msg, 'warning');
+  } 
+  elseif (($stats['page_title']['word_count'] < 5) && ($stats['page_title']['char_count'] < 40)) {
+    $msg = t('Page titles are the most important content area for optimization. Titles can be up to %max characters. It is currently %chars. Consider adding more keyword rich content to your title.', array('%max' => $title_char_max, '%chars' => $chars));
+    $analysis['page_title']['messages'][] = contentanalysis_format_message($msg, 'warning');
+  }
+  if ($keyword) {
+    if ($stats['page_title']['keyword_count'] == 0) {
+      $msg = t('Your keyword phrase does not appear in the title. Add your keywords to your title.');
+      $analysis['page_title']['messages'][] = contentanalysis_format_message($msg, 'warning');
+    } 
+    elseif ($stats['page_title']['keyword_count'] > 2) {
+      $msg = t('Your keyword phrase appears more than %max times in the page title. Consider reducing the number of times the keywords instances to less than %max.', array('%max' => $title_frequency_max));
+      $analysis['page_title']['messages'][] = contentanalysis_format_message($msg, 'warning');      
+    }
+    if ($stats['page_title']['keyword_count'] && ($stats['page_title']['keyword_prominence'] < 50)) {
+      $msg = t('Your keyword prominence is less that 50%. Consider increasing your keyword\'s prominence by moving it closer to the beginning of your page title.');
+      $analysis['page_title']['messages'][] = contentanalysis_format_message($msg, 'warning');
+    }
+  } 
+  else {
+      //$analysis['page_title']['messages'][] = contentanalysis_format_message(t('No keyword phrase was submitted for analysis. Input a keyword for more targeted recommendations.'),'warning');
+  }  
+
+  if (count($analysis['page_title']['messages']) > 0) {
+    $analysis['page_title']['#status'] = 'warning';
+    $analysis['#status'] = 'warning';
+  } 
+  else {
+    if ($keyword) {
+      $analysis['page_title']['messages'][] = contentanalysis_format_message(t('Optimized'), 'complete');   
+      $analysis['page_title']['#status'] = 'complete';
+      if (($analysis['#status'] != 'warning') && ($analysis['#status'] != 'error')) {
+        $analysis['#status'] = 'complete';
+      }
+    } 
+    else {
+      $analysis['page_title']['#status'] = 'status';
+    }  
+  }
+
+  // analyze meta description
+
+  if ($check_meta && ($context['meta_description'] != -1)) {
+    $meta_description .= strtolower(strip_tags($context['meta_description'])); 
+    $stats['meta_description'] = contentoptimizer_calc_stats($meta_description, $keyword);
+    $analysis['meta_description']['stats'] = contentoptimizer_format_stats($stats['meta_description']);
+    
+    $chars = format_plural($stats['meta_description']['char_count'], '1 character', '@count characters');
+    $words = format_plural($stats['meta_description']['word_count'], '1 word', '@count words');
+    $freq = format_plural($stats['meta_description']['keyword_count'], '1 time', '@count times');
+    
+    $meta_description_words_min = 10;
+    $meta_description_words_max = 25;
+    $meta_description_chars_min = 60;
+    $meta_description_chars_max = 160;
+    $meta_description_frequency_min = 0;
+    $meta_description_frequency_max = 2;
+
+    $ret['meta_description']['messages'] = array();
+    if ($stats['meta_description']['word_count'] < $meta_description_words_min) {
+      $msg = t('Your meta description should be between %min and %max words. It is currently %words. Consider increasing the number of words.', array('%min' => $meta_description_words_min, '%max' => $meta_description_words_max, '%words' => $words));
+      $analysis['meta_description']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+    } 
+    elseif (($stats['meta_description']['char_count'] > $meta_description_chars_max)) {
+      $msg = t('Your meta description should be between %min and %max characters. It is currently %chars. Consider reducing the length of your meta description.', array('%min' => $meta_description_chars_min, '%max' => $meta_description_chars_max, '%chars' => $chars));
+      $analysis['meta_description']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+    }
+    if ($keyword) {
+      if ($stats['meta_description']['keyword_count'] < $meta_description_frequency_min) {
+        $msg = t('Your keyword phrase should occur in your meta description between %min and %max times. It currently occurs %frequency. Consider increasing the number of keyword occurences in your meta description copy.', array('%min' => $meta_description_frequency_min, '%max' => $meta_description_frequency_max, '%frequency' => $freq));
+        $analysis['meta_description']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+      } 
+      elseif ($stats['meta_description']['keyword_count'] > $meta_description_frequency_max) {
+        $msg = t('Your keyword phrase should occur in your meta description between %min and %max times. It currently occurs %frequency. Consider reducing the number of keyword occurences in your meta description copy.', array('%min' => $meta_description_frequency_min, '%max' => $meta_description_frequency_max, '%frequency' => $freq));
+        $analysis['meta_description']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+      }
+    } 
+    else {
+        //$analysis['meta_description']['messages'][] = contentanalysis_format_message(t('No keyword phrase was submitted for analysis. Input a keyword for more targeted recommendations.'),'warning'); 
+    } 
+    if (count($analysis['meta_description']['messages']) > 0) {
+      //$analysis['meta_description']['#status'] = 'warning';
+    } 
+    else {
+      $analysis['meta_description']['messages'][] = contentanalysis_format_message(t('Optimized'), 'complete'); 
+      $analysis['meta_description']['#status'] = 'complete';      
+    } 
+  }
+
+  // analyze meta keywords
+  if ($check_meta && ($context['meta_keywords'] != -1)) {
+    $meta_keywords = strtolower($context['meta_keywords']); 
+    $stats['meta_keywords'] = contentoptimizer_calc_stats($meta_keywords, $keyword);
+    
+    if (!$meta_keywords) {
+      $stats['meta_keywords']['phrase_count'] = 0;
+    }
+    else {
+      $meta_keyword_segs = explode(',', $meta_keywords);
+      $stats['meta_keywords']['phrase_count'] = count($meta_keyword_segs);
+    }
+    
+    $analysis['meta_keywords']['stats'] = contentoptimizer_format_stats($stats['meta_keywords']);
+    
+    $words = format_plural($stats['meta_keywords']['word_count'], '1 word', '@count words');
+    $phrases = format_plural($stats['meta_keywords']['phrase_count'], '1 phrase', '@count phrases');
+    $freq = format_plural($stats['meta_keywords']['keyword_count'], '1 time', '@count times');
+    
+    $meta_keywords_words_min = 5;
+    $meta_keywords_words_max = 50;
+    $meta_keywords_phrase_min = 1;
+    $meta_keywords_phrase_max = 15;
+    $meta_keywords_frequency_min = 1;
+    $meta_keywords_frequency_max = 2;
+    
+    $analysis['meta_keywords']['messages'] = array();
+    if ($stats['meta_keywords']['word_count'] < $meta_keywords_words_min) {
+      $msg = t('Your meta keywords should be between %min and %max words. It is currently %words. Consider increasing the number of words.', array('%min' => $meta_keywords_words_min, '%max' => $meta_keywords_words_max, '%words' => $words));
+      $analysis['meta_keywords']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+    } 
+    elseif (($stats['meta_keywords']['word_count'] > $meta_keywords_words_max)) {
+      $msg = t('Your meta keywords should be between %min and %max words. It is currently %words. Consider reducing the number of words.', array('%min' => $meta_keywords_words_min, '%max' => $meta_keywords_words_max, '%words' => $words));
+      $analysis['meta_keywords']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+    }
+    if ($stats['meta_keywords']['phrase_count'] < $meta_keywords_phrase_min) {
+      $msg = t('Your meta keywords should include %min to %max phrases. It is currently %phrases. Consider increasing the number of phrases.', array('%min' => $meta_keywords_phrase_min, '%max' => $meta_keywords_phrase_max, '%phrases' => $phrases));
+      $analysis['meta_keywords']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+    } 
+    elseif (($stats['meta_keywords']['phrase_count'] > $meta_keywords_phrase_max)) {
+      $msg = t('Your meta keywords should include %min to %max phrases. It is currently %phrases. Consider reducing the number of phrases.', array('%min' => $meta_keywords_phrase_min, '%max' => $meta_keywords_phrase_max, '%phrases' => $phrases));
+      $analysis['meta_keywords']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+    }
+    if ($keyword) {
+      if ($stats['meta_keywords']['keyword_count'] < $meta_keywords_frequency_min) {
+        $msg = t('Your keyword phrase should occur in your meta keywords between %min and %max times. It currently occurs %frequency. Consider increasing the number of keyword occurences in your meta keywords.', array('%min' => $meta_keywords_frequency_min, '%max' => $meta_keywords_frequency_max, '%frequency' => $freq));
+        $analysis['meta_keywords']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+      } 
+      elseif ($stats['meta_keywords']['keyword_count'] > $meta_keywords_frequency_max) {
+        $msg = t('Your keyword phrase should occur in your meta keywords between %min and %max times. It currently occurs %frequency. Consider reducing the number of keyword occurences in your meta keywords.', array('%min' => $meta_keywords_frequency_min, '%max' => $meta_keywords_frequency_max, '%frequency' => $freq));
+        $analysis['meta_keywords']['messages'][] = contentanalysis_format_message($msg, 'warning'); 
+      }
+      if ($stats['meta_keywords']['keyword_count'] && ($stats['meta_keywords']['keyword_prominence'] < 30)) {
+        $analysis['meta_keywords']['messages'][] = contentanalysis_format_message(t('Your keyword prominence is less that 30%. Consider increasing your keyword\'s prominence by moving occurences closer to the beginning of your copy.'), 'warning'); 
+      }
+    } 
+    else {
+        //$analysis['meta_keywords']['messages'][] = contentanalysis_format_message(t('No keyword phrase was submitted for analysis. Input a keyword for more targeted recommendations.'),'warning'); 
+    } 
+    if (count($analysis['meta_keywords']['messages']) > 0) {
+      //$analysis['meta_keywords']['#status'] = 'warning';
+    } 
+    else {
+      $analysis['meta_keywords']['messages'][] = contentanalysis_format_message(t('Optimized'), 'complete');  
+      $analysis['meta_keywords']['#status'] = 'complete';      
+    }
+  }
+
+  return $analysis;
+}
+
+/**
+ * Calculates content stats
+ * 
+ * @param string $content
+ *   Subject to be have stats calculated on
+ * @param string $keyword
+ *   Keyword target
+ * @return array
+ *   Asscociated array of various content statistics
+ */
+function contentoptimizer_calc_stats($content, $keyword) {
+  $ret = array();
+  
+  $ret['char_count'] = strlen($content);
+  $ret['word_count'] = str_word_count($content);
+  if ($keyword) {
+    $content_segs = explode($keyword, $content);
+    $ret['keyword_count'] = count($content_segs)-1;
+    $ret['keyword_density'] = 0;
+    if ($ret['word_count']) {
+      $ret['keyword_density'] = 100 * $ret['keyword_count'] / $ret['word_count'];
+    }
+    $ret['keyword_positionsum'] = 0;
+    $i = 0;
+    foreach ($content_segs as $seg) {
+      if ($i >= $ret['keyword_count']) {
+        break;
+      }
+      $wordpos = str_word_count($seg)+1;
+      $ret['keyword_positionsum'] += $wordpos;
+      $i++;
+    }
+    
+    // prominence = ($totalwords - (($positionsum - 1) / $positionsnum)) * (100 / $totalwords)
+    $ret['keyword_prominence'] = 0;
+    if ($ret['keyword_count']) {
+      $ret['keyword_prominence'] = ($ret['word_count'] - (($ret['keyword_positionsum'] - 1) / $ret['keyword_count'])) * (100 / $ret['word_count']);
+    }
+  }
+  
+  return $ret;
+}
+
+/**
+ * Formats stats into standard contentanalysis elements
+ * 
+ * @param array $stats
+ *   Stats array formated by contentoptimizer_calc_stats()
+ */
+function contentoptimizer_format_stats($stats) {
+  $ret['char_count'] = contentanalysis_format_stat(t('Char count'), $stats['char_count']); 
+  $ret['word_count'] = contentanalysis_format_stat(t('Word count'), $stats['word_count']); 
+  if (isset($stats['keyword_count'])) {
+    $ret['keyword_count'] = contentanalysis_format_stat(t('Keyword count'), $stats['keyword_count']); 
+    $ret['keyword_density'] = contentanalysis_format_stat(t('Keyword density'), $stats['keyword_density'], 1); 
+    $ret['keyword_prominence'] = contentanalysis_format_stat(t('Keyword prominence'), $stats['keyword_prominence'], 1); 
+  }
+  
+  return $ret;
+}

@@ -1,0 +1,13 @@
+; $Id: w3canalyzer.info,v 1.2 2010/05/08 16:36:52 dustincurrie Exp $
+name = "W3C Analyzer"
+description = "Provides W3C Validation content analyzer."
+package = Content analysis
+dependencies[] = contentanalysis
+dependencies[] = w3c_validator
+core = 6.x
+; Information added by drupal.org packaging script on 2010-05-09
+version = "6.x-1.0-rc1"
+core = "6.x"
+project = "w3canalyzer"
+datestamp = "1273439111"
+

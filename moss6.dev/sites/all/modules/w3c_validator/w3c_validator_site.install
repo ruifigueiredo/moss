@@ -1,0 +1,167 @@
+<?php
+// $Id: w3c_validator_site.install,v 1.1 2009/07/28 11:27:19 pl2 Exp $
+
+/**
+ * @file
+ * Install hooks for the w3c_validator module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function w3c_validator_site_install() {
+  drupal_install_schema('w3c_validator_site');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function w3c_validator_site_uninstall() {
+  drupal_uninstall_schema('w3c_validator_site');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function w3c_validator_site_schema() {
+  $schema['validator_results_url'] = array(
+    'description' => t('TODO: please describe this table!'),
+    'fields' => array(
+      'urlid' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'disp-width' => '10',
+      ),
+      'url' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'rsid' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'disp-width' => '10',
+      ),
+      'validity' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'disp-width' => '3',
+      ),
+      'error_count' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'size' => 'small',
+        'not null' => TRUE,
+        'disp-width' => '5',
+      ),
+      'warning_count' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'size' => 'small',
+        'not null' => TRUE,
+        'disp-width' => '5',
+      ),
+      'doctype' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('urlid'),
+  );
+
+  $schema['validator_results_sets'] = array(
+    'description' => t('TODO: please describe this table!'),
+    'fields' => array(
+      'rsid' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'disp-width' => '10',
+      ),
+      'date' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'disp-width' => '10',
+      ),
+      'config' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'global_validate' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'disp-width' => '3',
+      ),
+    ),
+    'primary key' => array('rsid'),
+  );
+  $schema['validator_results_messages'] = array(
+    'description' => t('TODO: please describe this table!'),
+    'fields' => array(
+      'msgid' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'disp-width' => '10',
+      ),
+      'urlid' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'disp-width' => '10',
+      ),
+      'type' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'varchar',
+        'length' => '64',
+        'not null' => TRUE,
+      ),
+      'line' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'disp-width' => '10',
+      ),
+      'col' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'disp-width' => '10',
+      ),
+      'message' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('msgid'),
+    'indexes' => array(
+      'urlid' => array('urlid'),
+    ),
+  );
+
+  return $schema;
+}

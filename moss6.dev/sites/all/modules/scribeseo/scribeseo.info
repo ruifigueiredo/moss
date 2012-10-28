@@ -1,0 +1,12 @@
+; $Id: scribeseo.info,v 1.1.2.8 2010/09/26 00:43:12 tomdude48 Exp $
+name = "Scribe SEO"
+description = "Enables search engine optimization using the Scribe SEO analysis system."
+package = Content analysis
+dependencies[] = contentanalysis
+core = 6.x
+; Information added by drupal.org packaging script on 2011-01-05
+version = "6.x-1.0-rc7"
+core = "6.x"
+project = "scribeseo"
+datestamp = "1294268161"
+

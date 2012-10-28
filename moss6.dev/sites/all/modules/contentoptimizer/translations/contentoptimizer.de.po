@@ -1,0 +1,205 @@
+# $Id: contentoptimizer.de.po,v 1.1.2.1 2010/06/02 21:02:24 tomdude48 Exp $
+#
+# German translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  contentoptimizer.admin.inc,v 1.4 2010/04/28 19:28:57 tomdude48
+#  contentoptimizer.module,v 1.5 2010/04/28 19:28:57 tomdude48
+#  contentoptimizer.install,v 1.4 2010/04/28 19:28:57 tomdude48
+#  contentoptimizer.info,v 1.5 2010/04/28 19:28:57 tomdude48
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Drupal Content Optimizer\n"
+"POT-Creation-Date: 2010-06-02 16:31+0200\n"
+"PO-Revision-Date: 2010-06-02 16:36+0100\n"
+"Last-Translator: Frank Tartler <frank.tartler@googlemail.com>\n"
+"Language-Team: Frank Tartler <frank.tartler@googlemail.com>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"X-Poedit-Language: German\n"
+"X-Poedit-Country: GERMANY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: contentoptimizer.module:15
+msgid "Quick SEO"
+msgstr "Schnelle Suchmaschinen-Optimierung"
+
+#: contentoptimizer.module:47
+msgid "Targeted keyword phrase"
+msgstr "Ziel-Schlüsselwortphrase"
+
+#: contentoptimizer.module:133
+msgid "No keyword phrase was submitted for analysis. Input a keyword for more targeted recommendations."
+msgstr "Es wurde keine Schlüsselwortphrase zur Analyse angegeben. Geben Sie für zielgerichtetere Nachrichten ein Schlüsselwort ein."
+
+#: contentoptimizer.module:150
+msgid "Your body should be between %min and %max words. It is currently %words. Consider increasing the number of words."
+msgstr "Der Textkörper sollte zwischen %min und %max Wörter enthalten. Momentan hat er %words. Sie sollten die Anzahl der Wörter erhöhen."
+
+#: contentoptimizer.module:154
+msgid "Your body should be between %min and %max words. It is currently %words. Consider reducing the number of words."
+msgstr "Der Textkörper sollte zwischen %min und %max Wörter enthalten. Momentan hat er %words. Sie sollten die Anzahl der Wörter reduzieren."
+
+#: contentoptimizer.module:159
+msgid "Your keyword phrase should occur in your body between %min and %max times. It currently occurs %frequency. Consider increasing the number of keyword occurences in your body copy."
+msgstr "Ihre Schlüsselwortphrase sollte in Ihrem Textkörper zwischen %min und %max mal vorkommen. Momentan ist es %frequency. Sie sollten die Anzahl erhöhen, wie oft Ihr Schlüsselwort in Ihrem Textkörper auftritt."
+
+#: contentoptimizer.module:163
+msgid "Your keyword phrase should occur in your body between %min and %max times. It is currently occurs %frequency. Consider reducing the number of keyword occurences in your body copy."
+msgstr "Ihre Schlüsselwortphrase sollte in Ihrem Textkörper zwischen %min und %max mal vorkommen. Momentan ist es %frequency. Sie sollten die Anzahl reduzieren, wie oft Ihr Schlüsselwort in Ihrem Textkörper auftritt."
+
+#: contentoptimizer.module:166
+msgid "Your keyword prominence is less that 50%. Consider increasing your keyword's prominence by moving occurences closer to the beginning of your copy."
+msgstr "Ihre Schlüsselwort-Prominenz ist weniger als 50%. Sie sollten die Schlüsselwort-Prominenz erhöhen, indem sie deren Auftreten weiter an den Anfang Ihres Textes bringen."
+
+#: contentoptimizer.module:179;256;311;379
+msgid "Optimized"
+msgstr "Optimiert"
+
+#: contentoptimizer.module:195
+msgid "The <a href=\"http://drupal.org/project/page_title\" target=\"_blank\">Page Title</a> module is not installed. We recommend installing it for enhanced control of page titles."
+msgstr "Das Modul <a href=\"http://drupal.org/project/page_title\" target=\"_blank\">Page Title</a> ist nicht installiert. Die Installation wird zur verbesserten Steuerung von Seitentiteln empfohlen."
+
+#: contentoptimizer.module:200
+msgid "The <a href=\"http://drupal.org/project/nodewords\" target=\"_blank\">Meta Tags / Nodewords</a> module is not installed. We recommend installing it to enable editing of page meta information."
+msgstr "Das Modul <a href=\"http://drupal.org/project/nodewords\" target=\"_blank\">Meta Tags / Nodewords</a> ist nicht installiert. Die Installation wird zum Bearbeiten von Seiten-Metainformationen empfohlen."
+
+#: contentoptimizer.module:221
+msgid "Page titles should be no longer than %max characters. It is currently %chars. Consider reducing the length of your page title."
+msgstr "Seitentitel sollten nicht länger als %max Zeichen sein. Momentan sind es %chars. Sie sollten die Länge des Seitentitels reduzieren."
+
+#: contentoptimizer.module:225
+msgid "Page titles should be no longer than %max word. It is currently %words. Consider reducing the number of words in your page title."
+msgstr "Seitentitel sollten nicht länger als %max Wörter lang sein. Momentan snid es %words. Sie sollten die Anzahl der Wörter reduzieren."
+
+#: contentoptimizer.module:229
+msgid "Page titles are the most important content area for optimization. Titles can be up to %max characters. It is currently %chars. Consider adding more keyword rich content to your title."
+msgstr "Seitentitel sind der wichtigste Inhaltsbereich für die Optimierung. Titel können bis zu %max Zeichen haben. Momentan sind es %words Wörter. Sie sollten ihrem Titel mehr Schlüsselwort-bezogenen Inhalt hinzufügen."
+
+#: contentoptimizer.module:234
+msgid "Your keyword phrase does not appear in the title. Add your keywords to your title."
+msgstr "Ihre Schlüsselwortphrase kommt nicht im Titel vor. Fügen Sie Ihrem Titel die Schlüsselworte hinzu."
+
+#: contentoptimizer.module:238
+msgid "Your keyword phrase appears more than %max times in the page title. Consider reducing the number of times the keywords instances to less than %max."
+msgstr "Ihre Schlüsselwortphrase erscheint mehr als %max mal im Seitentitel. Sie sollten Sie die Anzahl des Vorkommens Ihrer Schlüsselworte auf weniger als %max reduzieren."
+
+#: contentoptimizer.module:242
+msgid "Your keyword prominence is less that 50%. Consider increasing your keyword's prominence by moving it closer to the beginning of your page title."
+msgstr "Ihre Schlüsselwort-Prominenz ist weniger als 50%. Sie sollten die Schlüsselwort-Prominenz erhöhen, indem sie diese näher an den Anfang des Seitentitels bringen"
+
+#: contentoptimizer.module:287
+msgid "Your meta description should be between %min and %max words. It is currently %words. Consider increasing the number of words."
+msgstr "Ihre Meta-Beschreibung sollte zwischen %min und %max Wörtern lang sein. Momentan sind es %words. Sie sollten die Anzahl der Wörter errhöhen."
+
+#: contentoptimizer.module:291
+msgid "Your meta description should be between %min and %max characters. It is currently %chars. Consider reducing the length of your meta description."
+msgstr "Ihre Meta-Beschreibung sollte zwischen %min und %max Zeichen lang sein. Momentan sind es %chars. Sie sollten die Länge der Meta-Beschreibung reduzieren."
+
+#: contentoptimizer.module:296
+msgid "Your keyword phrase should occur in your meta description between %min and %max times. It currently occurs %frequency. Consider increasing the number of keyword occurences in your meta description copy."
+msgstr "Ihre Schlüsselwortphrase sollte zwischen %min und %max mal in der Meta-Beschreibung erscheinen. Momentan erscheint sie %frequency mal. Sie sollten die Anzahl erhöhen, wie oft Ihr Schlüsselword in der Meta-Beschreibung vorkommt."
+
+#: contentoptimizer.module:300
+msgid "Your keyword phrase should occur in your meta description between %min and %max times. It currently occurs %frequency. Consider reducing the number of keyword occurences in your meta description copy."
+msgstr "Ihre Schlüsselwortphrase sollte zwischen %min und %max mal in der Meta-Beschreibung erscheinen. Momentan erscheint sie %frequency mal. Sie sollten die Anzahl reduzieren, wie oft Ihr Schlüsselword in der Meta-Beschreibung vorkommt."
+
+#: contentoptimizer.module:344
+msgid "Your meta keywords should be between %min and %max words. It is currently %words. Consider increasing the number of words."
+msgstr "Ihre Meta-Schlüsselwörter sollten zwischen %min und %max Wörtern lang sein. Momentan sind es %words. Sie sollten die Anzahl der Wörter erhöhen."
+
+#: contentoptimizer.module:348
+msgid "Your meta keywords should be between %min and %max words. It is currently %words. Consider reducing the number of words."
+msgstr "Ihre Meta-Schlüsselwörter sollten zwischen %min und %max Wörtern lang sein. Momentan sind es %words. Sie sollten die Anzahl der Wörter reduzieren."
+
+#: contentoptimizer.module:352
+msgid "Your meta keywords should include %min to %max phrases. It is currently %phrases. Consider increasing the number of phrases."
+msgstr "Ihre Meta-Schlüsselwörter sollten zwischen %min und %max Phrasen beinhalten. Momentan sind es %phrases. Sie sollten die Anzahl der Phrasen erhöhen."
+
+#: contentoptimizer.module:356
+msgid "Your meta keywords should include %min to %max phrases. It is currently %phrases. Consider reducing the number of phrases."
+msgstr "Ihre Meta-Schlüsselwörter sollten zwischen %min und %max Phrasen beinhalten. Momentan sind es %phrases. Sie sollten die Anzahl der Phrasen reduzieren."
+
+#: contentoptimizer.module:361
+msgid "Your keyword phrase should occur in your meta keywords between %min and %max times. It currently occurs %frequency. Consider increasing the number of keyword occurences in your meta keywords."
+msgstr "Ihre Schlüsselwortphrase solle in den Meta-Schlüsselwörtern zwischen %min und %max mal vorkommen. Momentan ist es %frequency mal. Sie sollten die Anzahl erhöhen, wie oft Ihre Schlüsselwörter in den Meta-Schlüsselwörtern auftreten."
+
+#: contentoptimizer.module:365
+msgid "Your keyword phrase should occur in your meta keywords between %min and %max times. It currently occurs %frequency. Consider reducing the number of keyword occurences in your meta keywords."
+msgstr "Ihre Schlüsselwortphrase solle in den Meta-Schlüsselwörtern zwischen %min und %max mal vorkommen. Momentan ist es %frequency mal. Sie sollten die Anzahl reduzieren, wie oft Ihre Schlüsselwörter in den Meta-Schlüsselwörtern auftreten."
+
+#: contentoptimizer.module:369
+msgid "Your keyword prominence is less that 30%. Consider increasing your keyword's prominence by moving occurences closer to the beginning of your copy."
+msgstr "Ihre Schlüsselwort-Prominenz ist weniger als 30%. Sie sollten die Schlüsselwort-Prominenz errhöhen, indem sie deren Auftreten näher an den Anfang ihres Textes bringen."
+
+#: contentoptimizer.module:437
+msgid "Char count"
+msgstr "Zeichenzahl"
+
+#: contentoptimizer.module:438
+msgid "Word count"
+msgstr "Wortzahl"
+
+#: contentoptimizer.module:440
+msgid "Keyword count"
+msgstr "Schlüsselwort-Zahl"
+
+#: contentoptimizer.module:441
+msgid "Keyword density"
+msgstr "Schlüsselwort-Dichte"
+
+#: contentoptimizer.module:442
+msgid "Keyword prominence"
+msgstr "Schlüsselwort-Prominenz"
+
+#: contentoptimizer.module:149;153;216;275;331
+msgid "1 word"
+msgid_plural "@count words"
+msgstr[0] "1 Wort"
+msgstr[1] "@count Wörter"
+
+#: contentoptimizer.module:158;162;217;276;333
+msgid "1 time"
+msgid_plural "@count times"
+msgstr[0] "1 mal"
+msgstr[1] "@count mal"
+
+#: contentoptimizer.module:215;274
+msgid "1 character"
+msgid_plural "@count characters"
+msgstr[0] "1 Zeichen"
+msgstr[1] "@count Zeichen"
+
+#: contentoptimizer.module:332
+msgid "1 phrase"
+msgid_plural "@count phrases"
+msgstr[0] "1 Satz"
+msgstr[1] "@count Sätze"
+
+#: contentoptimizer.install:30
+msgid "Creates database table for content optimizer keywords."
+msgstr "Erstellt Datenbanktabelle für Schlüsselwörter von Content Optimizer."
+
+#: contentoptimizer.install:37
+msgid "The content analysis id."
+msgstr "Die Inhaltsanalyse-ID."
+
+#: contentoptimizer.install:44
+msgid "The targeted keyword phrase for the node."
+msgstr "Die Ziel-Schlüsselwortphrase für den Beitrag."
+
+#: contentoptimizer.info:0
+msgid "Content Optimizer"
+msgstr ""
+
+#: contentoptimizer.info:0
+msgid "Profides search engine optimization analysis of node and other content."
+msgstr "Stellt eine Suchmaschinenoptimierungsanalyse von Beiträgen und anderem Inhalt bereit."
+
+#: contentoptimizer.info:0
+msgid "Content analysis"
+msgstr "Inhaltsanalyse"
+

@@ -1,0 +1,20 @@
+; $Id: w3c_validator_site.info,v 1.1.2.1 2009/12/22 10:00:56 pl2 Exp $
+name = "W3C Validator Site"
+description = "Validates all accesible content of a site"
+core = 6.x
+package = W3C Validator
+dependencies[] = w3c_validator
+
+; Information added by drupal.org packaging script on 2009-10-05
+version = "6.x-1.1"
+core = "6.x"
+project = "w3c_validator"
+datestamp = "1254740198"
+
+
+; Information added by drupal.org packaging script on 2009-12-22
+version = "6.x-1.2"
+core = "6.x"
+project = "w3c_validator"
+datestamp = "1261476683"
+

@@ -1,0 +1,292 @@
+<?php
+
+/**
+ * @file
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function kwresearch_google_menu() {
+  $items = array();
+  $items['admin/content/kwresearch/keyword_list/import_google'] = array(
+    'title' => t('Import Google data'),
+    'page callback' => 'kwresearch_google_keywords_import',
+    'access callback' => 'user_access',
+    'access arguments' => array('kwresearch admin site keywords'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  return $items;
+}
+
+/**
+ * Generates Google keywords import page
+ * 
+ * @param int $kid
+ */
+function kwresearch_google_keywords_import() {
+  drupal_set_title(t('Import Google AdWords Keyword Tool data'));
+  $output = t('This form enables you to import statitics data from Google tools for use in Keyword Research stats reports.');
+  $output .= drupal_get_form('kwresearch_google_keywords_import_form', $keyword);
+  return $output;
+}
+
+/**
+ * Returns Google keywords import form array
+ * 
+ * @param $form_state
+ * @param str $keyword
+ */
+function kwresearch_google_keywords_import_form($form_state, $keyword) {
+  
+  $options = kwresearch_get_priority_options();
+  $form['import_file'] = array(
+    '#type' => 'file',
+    '#title' => t('Import data'), 
+    '#description' => t("Select an export file from:<br />\n !toollink (recommended) or<br />\n !sktoollink",
+      array(
+        '!toollink' => l(t('Google AdWords Keyword Tool'), 'https://adwords.google.com/select/KeywordToolExternal', array('attributes' => array('target' => 'googlekeywordtool'))),
+        '!sktoollink' => l(t('Google Search-based Keyword Tool'), 'http://www.google.com/sktool/ ', array('attributes' => array('target' => 'googlekeywordtool'))),
+      )
+    ),
+  );  
+  
+
+  $form['save'] = array(
+    '#type' => 'submit',
+    '#value' => t('Import keywords data'),
+  );
+  $form['#attributes']['enctype'] = "multipart/form-data";
+  
+  return $form;
+}
+
+/**
+ * Validates Google keywords import form
+ * 
+ * @param $form
+ * @param $form_state
+ */
+function kwresearch_google_keywords_import_form_validate($form, &$form_state) {
+  // define upload field name
+  // NOTE: this should match the name of your form file field
+  $fieldName = 'import_file';
+   
+  // If a file was uploaded, process it.
+  if (isset($_FILES['files']) && is_uploaded_file($_FILES['files']['tmp_name'][$fieldName])) {
+
+    // attempt to save the uploaded file
+    $file = file_save_upload($fieldName);
+
+    // set error if file was not uploaded
+    if (!$file) {
+      form_set_error($fieldName, 'Error uploading file.');
+      return;
+    }
+       
+    // set files to form_state, to process when form is submitted
+    $form_state['values']['file'] = $file;
+       
+  }
+  else {
+    // set error
+    form_set_error($fieldName, 'Error uploading file.');
+    return;   
+  }
+}
+
+/**
+ * Processes Google keywords import form
+ * 
+ * @param $form
+ * @param $form_state
+ */
+function kwresearch_google_keywords_import_form_submit($form, &$form_state) {
+  $row = 1;
+  $keywords = '';
+  $imported = 0;
+  if (($handle = fopen($form_state['values']['file']->filepath, "r")) !== FALSE) {
+    // remove header line
+    $data = fgets($handle);
+    // older verion trying the newer mb_convert_endoing method
+    //$data = iconv("UCS-2","UTF-8", $data);
+    
+    //$data = ltrim($data, "\xFF\xFE");
+    $data = mb_convert_encoding($data, "UTF-8", "UCS-2");
+    
+    $a = explode("\t", $data);
+    foreach ($a as $i => $v) {
+      $a[$i] = trim($a[$i]);
+    }
+    if ((strpos($a[0], t('Keyword')) != FALSE) && ($a[2] == t('Global Monthly Searches')) && ($a[3] == t('Local Monthly Searches'))) {
+      $format = 'adwords';
+    }
+    elseif (($a[0] == t('Keyword')) && ($a[1] == t('Monthly searches'))) {
+      $format = 'sktool';
+    } 
+    else {
+      drupal_set_message(t('File does not match proper format.'), 'error');
+    }
+    while (($data = fgets($handle)) !== FALSE) {
+      //$data = iconv("UCS-2","UTF-8", $data);
+      
+      $data = mb_convert_encoding($data, "UTF-8", "UCS-2");      
+//echo "$data<br />\n"; continue;
+      if ($format == 'adwords') {
+        list($keyword, $competition, $global_monthly, $local_monthly) = explode("\t", $data);
+        $monthly_searches = $local_monthly;
+      }
+      elseif ($format == 'sktool') {
+        list($keyword, $local_monthly, $competition, $avg_cpc) = explode("\t", $data);
+        $monthly_searches = $local_monthly;
+        $competition /= 10;
+      }
+      if (!$keyword) {
+        continue;
+      }
+      $competition *= 100;
+      $avg_cpc = substr($avg_cpc, 1);
+      $keyword = trim(strtolower($keyword));
+      if ($format == 'adwords') {
+        $sql = '
+          UPDATE {kwresearch_google_data}
+          SET 
+            updated = %d,
+            monthly_searches = %d,
+            competition = %d,
+            avg_cpc = %f,
+            global_monthly_searches = %d,
+            local_monthly_searches = %d
+          WHERE keyphrase = "%s"
+        ';
+        db_query($sql, time(), $monthly_searches, $competition, $avg_cpc, $global_monthly, $local_monthly, $keyword);
+      }
+      elseif ($format == 'sktool') {
+        $sql = '
+          UPDATE {kwresearch_google_data}
+          SET 
+            updated = %d,
+            monthly_searches = %d,
+            competition = %d,
+            avg_cpc = %f,
+            sktool_monthly_searches = %d
+          WHERE keyphrase = "%s"
+        ';
+        db_query($sql, time(), $monthly_searches, $competition, $avg_cpc, $local_monthly, $keyword);
+      }
+      if (db_affected_rows() == 0) {
+        if ($format == 'adwords') {
+          $sql = '
+            INSERT INTO {kwresearch_google_data}
+            (keyphrase, updated, monthly_searches, competition, avg_cpc, global_monthly_searches, local_monthly_searches)
+            VALUES ("%s", %d, %d, %d, %f, %d, %d)
+          ';
+          db_query($sql, $keyword, time(), $monthly_searches, $competition, $avg_cpc, $global_monthly, $local_monthly);  
+        } 
+        elseif ($format == 'sktool') {
+          $sql = '
+            INSERT INTO {kwresearch_google_data}
+            (keyphrase, updated, monthly_searches, competition, avg_cpc, sktool_monthly_searches)
+            VALUES ("%s", %d, %d, %d, %f, %d)
+          ';
+          db_query($sql, $keyword, time(), $monthly_searches, $competition, $avg_cpc, $local_monthly);            
+        }     
+      }
+      $imported++;
+      $keywords .= (($keywords) ? ',' : '') . $keyword;
+    }
+    fclose($handle);
+
+  }
+  // recalculate keyword stats
+  kwresearch_get_keyword_stats_data($keywords, $msgs);
+  drupal_set_message(t('@imported keywords have been imported.',
+    array(
+      '@imported' => $imported++,
+    )
+  ));
+}
+
+/**
+ *  Implentation of hook_kwresearch_sources()
+ */
+
+function kwresearch_google_kwresearch_sources() {
+  $sources['google'] = array(
+    'title' => t('Google'),
+    'module' => 'kwresearch',
+    'stats_callback' => 'kwresearch_google_get_keyword_stats',
+    'searches_ratio' => 0.032854, // ratio = total daily searches / count from data
+    'stats_report_columns' => array(
+      'google_searches' => t('G count'),
+      'google_competition' => t('G comp'),
+      'google_bid' => t('G bid'),
+    ),
+    'stats_report_values_callback' => 'kwresearch_google_kwresearch_format_stats_values',
+  );
+  return $sources;  
+}
+
+/**
+ * Implementation of hook_stats_callback() via custom define callback in hook_kwresearch_sources()
+ * @param string|array $keywords
+ * @param array $msgs
+ * @param array $params
+ */
+function kwresearch_google_get_keyword_stats($keywords, &$msgs, $params) {
+  $apiret = array();
+  
+  $k = explode(',', $keywords);
+  $keywords_s = implode('","', $k);
+  
+  if (count($k) == 1) {
+    $sql = '
+        SELECT * FROM {kwresearch_google_data}
+        WHERE 
+          keyphrase LIKE "%%%s%%"
+    ';
+    $result = db_query($sql, $keywords);  
+  }
+  else {
+    $placeholders = implode(',', array_fill(0, count($k), '"%s"'));
+    $sql = '
+      SELECT * FROM {kwresearch_google_data}
+      WHERE keyphrase IN (' . $placeholders . ')
+    ';
+    $result = db_query($sql, $k);
+  }
+  while ($row = db_fetch_object($result)) {
+    $apiret[$row->keyphrase]['searches'] = (int) $row->monthly_searches;
+    $apiret[$row->keyphrase]['competition'] = (int) $row->competition;
+    $apiret[$row->keyphrase]['bid'] = (float) $row->avg_cpc;
+  }
+  return $apiret;
+}
+
+/**
+ * Implementation of hook_stats_report_values_callback() via custom define callback in hook_kwresearch_sources()
+ * @param $values
+ * @param $keyword
+ * @param $type
+ */
+function kwresearch_google_kwresearch_format_stats_values($values, $keyword='', $type = 'term') {
+  switch ($type) {
+    case 'google_searches':
+      if ($values['google_searches'] > 0) {
+        $output = ($values['google_searches']=='NA') ? 'NA': number_format($values['google_searches']);
+      }
+      else {
+        $output = $values['google_searches'];
+      }
+      break;
+    case 'google_competition':
+      $output = $values['google_competition'];
+      break;
+    case 'google_bid':
+      $output = t('$') . number_format($values['google_bid'], 2);      
+      break;
+    default:
+      return FALSE;
+  }  
+  return $output;
+}

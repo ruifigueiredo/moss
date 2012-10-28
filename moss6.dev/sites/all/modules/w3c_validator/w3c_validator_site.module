@@ -1,0 +1,258 @@
+<?php
+// $Id: w3c_validator_site.module,v 1.1.2.3 2009/12/22 10:00:56 pl2 Exp $
+
+/**
+ * @file
+ * Main module file for w3c validator site.
+ *
+ * This module validates all nodes and views on the site using the
+ * w3c_validator module. It stores the results for later review.
+ *
+ * TODO: Create a hook that allows other modules to provide paths for more pages
+ *       to be validated. Reimplement nodes and views using that hook.
+ * TODO: Implement drush commands for validation.
+ * TODO: Refactor some output using theme functions.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function w3c_validator_site_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#w3c_validator_site':
+      return '<p>'. t('') .'</p>';
+    case 'admin/content/validator/results':
+      return '<p>'. t('Most recent results are at the top.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function w3c_validator_site_menu() {
+  $items = array();
+
+  $items['admin/content/validator'] = array(
+    'title' => 'Site validator',
+    'description' => 'Validates all content in a site.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('w3c_validator_site_content_validator'),
+    'access arguments' => array('administer w3c_validator_site'),
+    'file' => 'w3c_validator_site.pages.inc',
+  );
+
+  $items['admin/content/validator/validate'] = array(
+    'title' => 'Validate',
+    'access arguments' => array('administer w3c_validator_site'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+
+  // TODO: Implement settings
+  /*
+  $items['admin/content/validator/settings'] = array(
+    'title' => 'Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('w3c_validator_settings'),
+    'access arguments' => array('administer w3c_validator_site'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+    'file' => 'w3c_validator_site.pages.inc',
+  );
+  */
+
+  $items['admin/content/validator/results'] = array(
+    'title' => 'Results',
+    'page callback' => 'w3c_validator_site_result_sets_page',
+    'access arguments' => array('administer w3c_validator_site'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+    'file' => 'w3c_validator_site.pages.inc',
+  );
+
+  $items['admin/content/validator/results/%w3c_validator_result_set'] = array(
+    'title' => 'Result set',
+    'page callback' => 'w3c_validator_site_result_set_details_page',
+    'page arguments' => array(4),
+    'access arguments' => array('administer w3c_validator_site'),
+    'type' => MENU_CALLBACK,
+    'file' => 'w3c_validator_site.pages.inc',
+  );
+
+
+  $items['admin/content/validator/results/%w3c_validator_result_set/%w3c_validator_result_url'] = array(
+    'title' => 'Result set',
+    'page callback' => 'w3c_validator_site_result_url_page',
+    'page arguments' => array(5),
+    'access arguments' => array('administer w3c_validator_site'),
+    'type' => MENU_CALLBACK,
+    'file' => 'w3c_validator_site.pages.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Load a result set object.
+ *
+ * @param string $rsid
+ * @return void
+ */
+function w3c_validator_result_set_load($rsid) {
+  $result_set = db_fetch_object(db_query("SELECT * FROM {validator_results_sets} WHERE rsid = %d", $rsid));
+
+  $result_set->config = unserialize($result_set->config);
+
+  return $result_set;
+}
+
+/**
+ * Load a result url object.
+ *
+ * @param string $urlid
+ * @return void
+ */
+function w3c_validator_result_url_load($urlid) {
+  return db_fetch_object(db_query("SELECT * FROM {validator_results_url} WHERE urlid = %d", $urlid));
+}
+
+/**
+ * Creates a batch array from a result set to be used with the batch api.
+ *
+ * @param string $result_set
+ * @return void
+ */
+function w3c_validator_site_get_validation_batch($result_set) {
+  $batch = array(
+    'title' => t('Validating'),
+    'operations' => array(),
+    'finished' => '_w3c_validator_site_batch_finish',
+    'rsid' => $result_set->rsid,
+    );
+
+  if ($result_set->config['validate_elements']['node']) {
+    if ($node_ops = w3c_validator_site_validate_nodes($result_set)) {
+      $batch['operations'] = array_merge($batch['operations'], $node_ops);
+    }
+  }
+
+  if ($result_set->config['validate_elements']['view']) {
+    if ($view_ops = w3c_validator_site_validate_views($result_set->rsid)) {
+      $batch['operations'] = array_merge($batch['operations'], $view_ops);
+    }
+  }
+
+  return $batch;
+}
+
+/**
+ * Redirect the user to the validation results when the batch finishes.
+ *
+ * @param string $success
+ * @param string $results
+ * @param string $operations
+ * @return void
+ */
+function _w3c_validator_site_batch_finish($success, $results, $operations) {
+  $batch =& batch_get();
+
+  $rsid = $batch['sets'][0]['rsid'];
+
+  $batch['redirect'] = 'admin/content/validator/results/'. $rsid;
+}
+
+/**
+ * Validate nodes.
+ *
+ * @param string $node_types
+ * @return void
+ */
+function w3c_validator_site_validate_nodes($result_set) {
+  $node_types = array();
+  foreach ($result_set->config['content_types'] as $name => $enabled) {
+    if ($enabled) {
+      $node_types[] = $name;
+    }
+  }
+
+  if (empty($node_types)) {
+    return FALSE;
+  }
+
+  $node_type_ph = db_placeholders($node_types, 'varchar');
+  $sql = "SELECT nid
+    FROM {node} n
+    WHERE n.type IN ($node_type_ph)";
+
+  if (!$result_set->config['unpublished']) {
+    $sql .= ' AND n.status = 1';
+  }
+
+  $result = db_query($sql, $node_types);
+
+  $ops = array();
+
+  while ($node = db_fetch_object($result)) {
+    $ops[] = array('w3c_validator_site_validate_path', array($result_set->rsid, 'node/'. $node->nid));
+  }
+
+  return $ops;
+}
+
+/**
+ * Validates a path and stores the results.
+ *
+ * @param string $path
+ * @return void
+ */
+function w3c_validator_site_validate_path($rsid, $path, &$context) {
+  global $base_url;
+
+  $path = drupal_get_path_alias($path);
+
+  $url = $base_url .'/'. $path;
+
+  $results = _w3c_validator_validate_uri($url);
+
+  if ($results['response']->code != 200) {
+    return;
+  }
+
+  $result_url = new stdClass;
+  $result_url->url =  $url;
+  $result_url->rsid = $rsid;
+  $result_url->validity = $results['validity'] == 'true' ? 1 : 0;
+  $result_url->error_count = count($results['errors']);
+  $result_url->warning_count = count($results['warnings']);
+  $result_url->doctype = $results['doctype'];
+  drupal_write_record('validator_results_url', $result_url);
+
+  $context['results'][] = $url . ' '. t('Result') .': '. ($result_url->validity ? t('Valid') : t('Not valid')) .' '. t('Errors') .': '. $result_url->error_count .' '. t('Warnings') .': '. $result_url->warning_count;
+  $context['message'] = implode('<br /> ', $context['results']);
+
+  $urlid = $result_url->urlid;
+  if (!$urlid) {
+    drupal_set_message('Error when trying to write url result. Aborting');
+    return;
+  }
+
+  $types = array('error', 'warning');
+  foreach ($types as $type) {
+    if (is_array($results[$type .'s'])) {
+      foreach ($results[$type .'s'] as $result_message) {
+        $message = new stdClass();
+        $message->urlid = $urlid;
+        $message->type = $type;
+        $message->line = $result_message['line'];
+        $message->col = $result_message['col'];
+        $message->message = $result_message['message'];
+        drupal_write_record('validator_results_messages', $message);
+      }
+    }
+  }
+
+  if ($results['validity'] != 'true') {
+    db_query("UPDATE {validator_results_sets} SET global_validate = 0 WHERE rsid = %d", $rsid);
+  }
+}
+

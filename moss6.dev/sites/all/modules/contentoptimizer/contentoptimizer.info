@@ -1,0 +1,12 @@
+; $Id: contentoptimizer.info,v 1.7 2010/05/08 16:14:58 tomdude48 Exp $
+name = "Content Optimizer"
+description = "Profides search engine optimization analysis of node and other content."
+package = Content analysis
+dependencies[] = contentanalysis
+core = 6.x
+; Information added by drupal.org packaging script on 2010-12-07
+version = "6.x-2.2"
+core = "6.x"
+project = "contentoptimizer"
+datestamp = "1291762536"
+

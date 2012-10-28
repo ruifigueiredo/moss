@@ -1,0 +1,988 @@
+<?php
+// $Id: scribeseo.module,v 1.1.2.13 2011/01/05 22:49:02 randallknutson Exp $
+
+/**
+ * @file
+ * Analyzes node content for search engine optimization recommendations using the Scribe SEO optimizer
+ */
+
+DEFINE(SCRIBESEO_LINK_GETKEY, 'http://www.leveltendesign.com/scribeseo/getkey');
+DEFINE(SCRIBESEO_LINK_UPGRADEACCOUNT, 'http://www.leveltendesign.com/scribeseo/upgrade');
+ 
+/**
+ * Implementation of hook_menu().
+ */
+function scribeseo_menu() {
+  $items = array();
+  $items['admin/settings/scribeseo'] = array(
+    'title' => t('Scribe SEO'),
+    'description' => 'Analyze and optimize node content.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('scribeseo_admin_settings'),
+    'access callback' => 'user_access',
+    'access arguments' => array('admin content analysis'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'scribeseo.admin.inc',
+  ); 
+  $items['scribeseo/analyzer_form_elements_js'] = array(
+    'title' => '',
+    'page callback' => 'scribeseo_analyzer_form_elements_js',
+    'access callback' => TRUE,
+    'access arguments' => array('perform content analysis'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['scribeseo/alternate_keywords_report_js'] = array(
+    'title' => '',
+    'page callback' => 'scribeseo_get_keyword_alternates_report_js',
+    'access callback' => TRUE,
+    'access arguments' => array('perform content analysis'),
+    'type' => MENU_CALLBACK,
+  );  
+  $items['scribeseo/util'] = array(
+    'title' => '',
+    'page callback' => 'scribeseo_util',
+    'access callback' => TRUE,
+    'access arguments' => array('perform content analysis'),
+    'type' => MENU_CALLBACK,
+  ); 
+  
+  return $items;
+}
+
+/*
+ *  register scribeseo with scribeseo analyzers
+ */
+function scribeseo_contentanalysis_analyzers() {
+  $analyzers['scribeseo'] = array(
+    'title' => t('Scribe SEO'),
+    'module' => 'scribeseo',
+    'callback' => 'scribeseo_analyzer',
+    'form elements callback' => 'scribeseo_analyzer_form_elements',
+    'score suffix' => t('%'),
+    'weight' => -5,
+  );
+  return $analyzers;  
+}
+
+function scribeseo_analyzer_form_elements($form_state, $analysis='', $node=0) {
+  drupal_add_css(drupal_get_path('module', 'scribeseo') . '/scribeseo.css'); 
+  drupal_add_js(drupal_get_path('module', 'scribeseo') . '/scribeseo.js');
+
+  if ((arg(0) == 'node') && (is_numeric(arg(1)))) {
+    $form = scribeseo_get_analyzer_form_elements(array(), 'node/edit', arg(1));
+    drupal_add_js(
+      array('scribeseo' => array(
+        'get_form_elements_callback' => base_path() . 'scribeseo/analyzer_form_elements_js',
+        'alternate_keywords_callback' => base_path() . 'scribeseo/alternate_keywords_report_js',
+        'get_form_elements' => 1,
+        'nid' => arg(1),
+        'mode' => 'node/edit',
+        'path' => '',
+      )), 
+    'setting');    
+  } 
+  elseif ((arg(0) == 'node') && (arg(1) == 'add')) {
+    unset($_SESSION['scribeseo']['cache']['add']); // clear session cache on new node add form
+    $form = scribeseo_get_analyzer_form_elements(array(), 'node/add');
+    drupal_add_js(
+      array('scribeseo' => array(
+        'get_form_elements_callback' => base_path() . 'scribeseo/analyzer_form_elements_js',
+        'alternate_keywords_callback' => base_path() . 'scribeseo/alternate_keywords_report_js',
+        'get_form_elements' => 1,
+        'nid' => 0,
+        'mode' => 'node/add',
+        'path' => '',
+      )), 
+    'setting');  
+  }
+
+  return $form;
+}
+
+function scribeseo_analyzer_form_elements_js() {
+  //$output = drupal_render(scribeseo_get_analyzer_form_elements($_REQUEST['nid']));
+  $output = drupal_get_form('scribeseo_get_analyzer_form_elements', $_REQUEST['mode'], $_REQUEST['nid'], $_REQUEST['path'], $_REQUEST['usecachedefault']);
+  // remove form tags
+  // NOTE there is probably a better way of doing this, but this should work for now
+  $s = strpos($output, '<!-- startform -->');
+  $output = substr($output, $s,  -8);
+  
+  //print $output;
+  //exit;
+  $res = array();
+  $res['main']['output'] = $output;
+  drupal_json($res);
+}
+
+function scribeseo_get_analyzer_form_elements($form_state = array(), $mode = 'node/edit', $nid = 0, $path = '', $usecachdefault = NULL) {
+  if ($nid && is_numeric($nid)) {
+    $aid = contentanalysis_get_aid_by_nid($nid);
+    if ($aid) {
+      $optimizer = scribeseo_cache_get($aid);
+    } 
+  }
+  elseif ($mode == 'node/add') {
+    $optimizer = scribeseo_cache_get('add');
+  }
+
+  if ($optimizer) {
+    // exit if no cache exists for node
+    $options = array(
+      '1' => t('Show cached version'), 
+      '0' => t('Submit to Scribe SEO for re-analysis')
+    );
+    $description = t('An analysis was saved on %date.',
+      array(
+        '%date' => format_date($optimizer['GetAnalysisResult']['Cache']['Created'], 'custom', 'F j, Y, g:i a'),
+      )
+    );
+    $description .= t('Select "Show cached version" to see saved analysis or "Submit to Scribe..." to re-analyze.');
+  } 
+  else {
+    $options = array(
+      '1' => t('Show cached version (if it exists)'), 
+      '0' => t('Submit to Scribe SEO for analysis')
+    );
+    $description = t('Select "Submit to Scribe..." to generated and new Scribe SEO analysis. Select "Show cached version" to display a pervious analysis if one exists for the node/url.' );
+  }
+
+  $w = 1;
+  $form['start'] = array(
+    '#type' => 'markup',
+    '#value' => '<!-- startform -->' . "\n",
+    '#weight' => $w++,
+  );
+  
+  $form['mark0'] = array(
+    '#type' => 'markup',
+    '#value' => '<div id="scribeseo_form_elements">',
+    '#weight' => $w++,
+  );
+  
+  $score = ($optimizer['GetAnalysisResult']['Cache']['Score'])?$optimizer['GetAnalysisResult']['Cache']['Score'] . '%':'NA';
+  $status = 'error';
+  if ($score > 75) {
+    $status = 'complete';
+  } 
+  elseif ($score > 50) {
+    $status = 'warning';
+  }
+  $form['score'] = array(
+    '#type' => 'item',
+    '#title' => t('Score'),
+    '#value' => '<div id="scribeseo_form_score"><div class="' . $status . '">' . $score . '</div></div>',
+    '#weight' => $w++,
+  );
+  $kws = ($optimizer['GetAnalysisResult']['Cache']['PrimaryKeywords']) ? str_replace(',', ', ', $optimizer['GetAnalysisResult']['Cache']['PrimaryKeywords']) : 'NA';
+  $form['primarykeywords'] = array(
+    '#type' => 'item',
+    '#title' => t('Primary keywords'),
+    //'#value' => '<div id="scribeseo_primarykeywords">' . $result['GetAnalysisResult']['Cache']['PrimaryKeywords'] . '</div>'
+    '#value' => $kws,
+    '#weight' => $w++,
+  );
+  
+  $credits = variable_get('scribeseo_credits', '');
+  
+  $form['scribeseo_evalsleft'] = array(
+    '#type' => 'item',
+    '#title' => t('Evaluations left'), 
+    '#value' => $credits['remaining'] . ' ' . t('evaluations as of ') . format_date(strtotime($credits['time']), 'custom', 'F j, Y, g:i a'),
+    '#weight' => $w++,
+  );
+  
+  if ($optimizer) {
+    $form['scribeseo_usecache'] = array(
+      '#type' => 'radios',
+      '#title' => t('Analysis source'), 
+      '#description' => $description,
+      '#options' => $options,
+      '#default_value' => (!is_null($usecachdefault)) ? $usecachdefault : variable_get('scribeseo_usecache_default', '0'),
+      '#weight' => $w++,    
+    );
+
+  }
+  else {
+    $form['scribeseo_usecache'] = array(
+      '#type' => 'hidden',
+      '#value' => '0',
+      '#weight' => $w++,    
+    );
+    $form['scribeseo_usecacheitem'] = array(
+      '#type' => 'item',
+      '#title' => t('Analysis cache'),
+      '#value' => t('No analysis is cached for this content. Click Analyze content to submit to Scribe for analysis.'),
+      '#weight' => $w++,
+    );   
+  }
+  // set hidden var to save session cache on node add
+  $form['scribeseo_save_session_cache'] = array(
+    '#type' => 'hidden',
+    '#value' => (($mode == 'node/add') && $optimizer) ? 1 : 0,
+    '#weight' => $w++,    
+  ); 
+  
+  $form['mark1'] = array(
+    '#type' => 'markup',
+    '#value' => '</div>',
+    '#weight' => $w++,
+  );
+
+  return $form;
+}
+
+/*
+ * Implementation hook_nodeapi
+ */
+function scribeseo_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  // if node is inserted check for an analysis in session cache. Save if available
+  if ($op == 'insert') {
+    $optimizer = scribeseo_cache_get('add');
+    if ($optimizer) {
+      $context = array(
+        'nid' => $node->nid,
+        'path' => 'node/' . $node->nid,
+      );
+      $aid = contentanalysis_get_aid($context);
+      scribeseo_cache_set($aid, $optimizer);
+    }
+  }
+}
+
+/*
+ * Implementation of the 
+ */
+function scribeseo_analyzer($context, $analysis, $params) {
+//watchdog('scribe.248',print_r($context,1));
+  if (!$context['page_title']) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Page title is missing. Please enter a page title before submitting to Scribe SEO for analysis.'), 'error'); 
+    return $analysis;
+  }
+  
+  if (!$context['body']) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Body content is missing. Please enter body text before submitting to Scribe SEO for analysis.'), 'error'); 
+    return $analysis;
+  }
+  
+  if (!$context['meta_description'] && !variable_get('scribeseo_altdescription', 'node_teaser')) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Meta description is missing. Please enter a meta description before submitting to Scribe SEO for analysis.'), 'error'); 
+    return $analysis;
+  }
+
+  $optimizer = module_invoke_all('scribeseo_get_optimizer', $context, $analysis, $params);
+  
+  if (!$optimizer) {
+    $optimizer = scribeseo_get_optimizer($context, $analysis, $params);
+  }
+  
+  drupal_alter('scribeseo_optimizer', $optimizer);  
+
+  if (!$optimizer) {
+    return $analysis;
+  }
+  
+// SEO Score Tab
+  $seoSecs = $optimizer->results['GetAnalysisResult']['Analysis']['SeoScore']['Sections']['SeoScoreSection'];
+  $seoScore = $optimizer->results['GetAnalysisResult']['Analysis']['SeoScore'];
+  
+  $analysis['content'][] = contentanalysis_format_content(t('SEO Score'), -10, TRUE);
+
+  
+  $val = $seoScore['Score']['Value'];
+  $des = $seoScore['Score']['Description'];
+  $analysis['#score'] = $val;
+  $status = 'error';
+  if ($val > 50) { 
+    $status = 'warning'; 
+  }
+  if ($val > 75) { 
+    $status = 'complete'; 
+  }
+  $rows[] = array(array('data' => $val . "%", 'class' => 'value sections ' . $status), array('data' => $des, 'class' => 'message'));
+  
+  $out = '<p>' . $seoScore['Description'] . '</p>';
+  $out .= theme_table($header, $rows, array('id' => 'scribeseo_score'));  
+  
+  $analysis['content'][] = contentanalysis_format_content($out, -9);
+  
+// status messages
+  $analysis['page_title']['messages'] = array();
+  $analysis['body']['messages'] = array();
+  $analysis['meta_description']['messages'] = array();
+  $sectran = array(
+    'Title' => 'page_title',
+    'Description' => 'meta_description',
+    'Body' => 'body',
+  );
+  $statustran = array(
+    'true' => 'status',
+    'false' => 'warning',
+  );
+
+  //$analysis['#status'] = 'complete';
+  if (is_array($seoSecs)) {
+    foreach ($seoSecs AS $k => $v) {
+      if (is_array($v['Items'])) {
+        foreach ($v['Items']['SeoScoreSectionItem'] AS $k2 => $v2) {
+          $analysis[$sectran[$v2['SectionName']]]['messages'][] = contentanalysis_format_message($v2['Text'], $statustran[$v2['IsPassing']]);
+          if ($v2['IsPassing'] == 'false') {
+            $analysis[$sectran[$v2['SectionName']]]['#status'] = 'warning';
+            //$analysis['#status'] = 'warning';
+          } 
+          elseif ($analysis[$sectran[$v2['SectionName']]]['#status'] == 'status') {
+            //$analysis[$sectran[$v2['SectionName']]]['#status'] = 'complete';
+          }
+        }
+      }
+    }
+  }
+  $analysis['#status'] = $status;
+  
+// Keyword Analysis Tab  
+  $kwAnalysis = $optimizer->results['GetAnalysisResult']['Analysis']['KeywordAnalysis'];
+  $primaryKW = $optimizer->results['GetAnalysisResult']['Analysis']['PrimaryKeywords'];
+  
+  $analysis['content'][] = contentanalysis_format_content(t('Keyword Analysis'), 10, TRUE);
+  
+  $out = "<p><h3>" . t('Contextual Analysis') . "</h3>";
+  $out .= $primaryKW['Description'] . "</p>\n";
+  if ($primaryKW['KeywordDescriptions']['KeywordDescription']) {
+    $out .= "<table>";
+    foreach ($primaryKW['KeywordDescriptions']['KeywordDescription'] AS $v) {
+    $out .= "<tr><td>" . $v['Type'] . "</td><td>" . $v['Value'] . "</td></tr>\n";
+    }
+    $out .= "</table>";
+  }
+  
+  $out .= "<h3>" . t('Keyword Analysis') . "</h3>";
+  $out .= $kwAnalysis['Description'] . "<br>\n";
+  //$out .= "<strong>".t('Keywords content stats')."</strong>";
+  
+  $header = array(
+    array('data' => t('Keywords')), 
+    array('data' => t('Rank')), 
+    array('data' => t('Prominence')), 
+    array('data' => t('Frequency')), 
+    array('data' => t('Density'))
+  );
+
+  if (is_array($kwAnalysis['Keywords']['Keyword'])) {
+    $rows = array();
+    foreach ($kwAnalysis['Keywords']['Keyword'] AS $v) {
+
+      $r = array(
+        array('data' => '<span class="kwresearch_keyword">' . $v['Term'] . '</div>'), 
+        array('data' => $v['Rank']),
+        array('data' => $v['Prominence']),
+        array('data' => $v['Frequency']),
+        array('data' => $v['Density'] . "%"),
+      ); 
+      $rows[] = $r;
+    }
+    $out .= theme_table($header, $rows, array('class' => 'scribeseo_keywordanalysis'));
+  
+    $analysis['content'][] = contentanalysis_format_content($out, 11);
+  }
+  
+  // change keywords
+  $out = '<p>' . $primaryKW['KeywordChange']['Description'] . '</p>';
+
+  $analysis['content'][] = contentanalysis_format_content(t('Change Keywords'), 20, TRUE);
+  $analysis['content'][] = contentanalysis_format_content($out, 21);
+  
+  // alternate keywords
+  $kwAlternatesInfo = $optimizer->results['GetAnalysisResult']['Analysis']['KeywordAlternates'];
+  $keywords = $primaryKW['Keywords']['Keyword'];
+  $kwAlternates = $kwAlternatesInfo['Keywords']['Keyword'];
+  if (empty($keywords)) {
+    $out = t('No keywords found.');
+  }
+  else {
+    $out = '<p>' . check_plain($kwAlternatesInfo['Description']) . '</p>';
+    $out .= '<div id="scribe-content-keywords-container">';
+    //$out .= '<p><strong>' . t('Click a keyword below to see alternate suggestions.') . '</strong></p>'; 
+    $items = array();
+    $kw0 = '';
+    foreach ($keywords AS $number => $keyword) { 
+      if (!in_array($keyword['Rank'], array('Primary', 'Important', 'Significant'))) { 
+        continue; 
+      }
+      $id = 'scribe-content-keyword-tab-' . check_plain(str_replace(' ', '-', $keyword['Term']));
+      $item = '<a href="#" id="' . $id . '" class="scribe-content-keyword ' . ((!$kw0)?'active':'') . '">';
+      $item .= check_plain($keyword['Term']) . '</a>';
+      $items[] = array('data' => $item);  
+      if (!$kw0) {
+        $kw0 = $keyword['Term'];
+      }
+    }
+    $out .= theme_item_list($items, NULL, 'ul', array('id' => 'scribe-content-keywords'));
+    $out .= '</div>';
+    
+    $out .= '<div id="scribe-alternate-keywords">';
+    $attr = array(
+      'id' => 'fetching-alternate-keywords-message',
+      'class' => 'widefat',
+      'style' => 'display:none;',      
+    );
+    $hdrs = array(
+      t('Fetching alternate keywords...')
+    );
+    $out .= theme_table($hdrs, array(), $attr);
+    
+    $out .= scribeseo_get_keyword_alternates_table($kw0, $kwAlternates);
+    
+    $out .= '</div>';
+    
+    $out .= '<div id="previously-fetched-alternates" style="display: none;"></div>';
+   
+  }    
+  
+  $analysis['content'][] = contentanalysis_format_content(t('Alternate Keywords'), 30, TRUE);
+  $analysis['content'][] = contentanalysis_format_content($out, 31);   
+  
+  // tags
+  $tagAnalysis = $optimizer->results['GetAnalysisResult']['Analysis']['TagAnalysis'];
+  $out = '<p>' . $tagAnalysis['Description'] . '</p>';
+  $out .= '<div id="scribeseo_tags">' . "\n";
+  
+  if ($tagAnalysis['Tags']['Tag']) {
+    $out .= '<ul class="scribeseo_tags">' . "\n";
+    foreach ($tagAnalysis['Tags']['Tag'] AS $k => $v) {
+      if (!$tagAnalysis['Tags']['Tag'][$k+1]) {
+        $class = ' class="last"';
+      }
+      //$out .= '<li'.$class.'><span class="kwresearch_keyword">'.$v['Value'].'</span></li>'."\n";
+      $out .= '<li' . $class . '>' . $v['Value'] . '</li>' . "\n";
+
+    }
+    $out .= '</ul>' . "\n";
+  }
+  $out .= '</div>';
+  
+  $analysis['content'][] = contentanalysis_format_content(t('Tags'), 40, TRUE); 
+  $analysis['content'][] = contentanalysis_format_content($out, 41); 
+
+  // serp
+  $serp = $optimizer->results['GetAnalysisResult']['Analysis']['Serp'];
+
+  $out = '<p>' . $serp['Description'] . '</p>';
+  $out .= '<div id="scribeseo_serp">' . "\n";
+  
+  $out .= '<span style="' . $serp['Headline']['Style'] . '">' . $serp['Headline']['Value'] . '</span><br>' . "\n";
+  $out .= '<span style="' . $serp['Snippit']['Style'] . '">' . $serp['Snippit']['Value'] . '</span>' . "\n";
+  $out .= '<span style="' . $serp['Url']['Style'] . '">' . $serp['Url']['Value'] . '</span>' . "\n";
+  
+  $out .= '</div>';
+  
+  $analysis['content'][] = contentanalysis_format_content(t('SERP'), 50, TRUE); 
+  $analysis['content'][] = contentanalysis_format_content($out, 51);
+  
+  // SEO best practices 
+  $url = "http://vesta.ecordia.com/optimizer/docs/seo-best-practice.html";
+  if ($_SESSION['scribeseo']['seo-best-pratices-page']) {
+    $page = $_SESSION['scribeseo']['seo-best-pratices-page'];
+  } 
+  else {   
+    // create curl resource
+    $ch = curl_init();
+    // set url
+    curl_setopt($ch, CURLOPT_URL, $url);
+    //return the transfer as a string
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    // $output contains the output string
+    $page = curl_exec($ch);
+    // close curl resource to free up system resources
+    curl_close($ch); 
+    //$_SESSION['scribeseo']['seo-best-pratices-page'] = $page;    
+  }  
+  $out = '<p>';
+  if ($page) {
+    $out .= $page;
+  } 
+  else {
+    $out .= l(t('See the Ecordia SEO Best Practices'), $url, array('target' => 'scribe'));
+  }
+  $out .= '</p>';
+  
+  $analysis['content'][] = contentanalysis_format_content(t('SEO Best Practices'), 60, TRUE); 
+  $analysis['content'][] = contentanalysis_format_content($out, 61);
+  
+  drupal_alter('scribeseo_analysis', $analysis);
+  return $analysis;
+}
+
+/*
+ * Implementation of the 
+ */
+function scribeseo_get_optimizer($context, &$analysis, $params) {
+//watchdog('scribe.510',print_r($context, 1));
+  if (($context['source'] != 'node-edit-form') && is_null($context['aid'])) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Scribe SEO analysis can only be run on full pages. Analysis was not submitted.'), 'status'); 
+    return FALSE;
+  }
+  if (!scribeseo_include_api_classes($analysis)) {
+    return FALSE;
+  }
+  
+  $apikey = variable_get('scribeseo_apikey', '');
+  $usessl = variable_get('scribeseo_usessl', 'http');
+  if (!$apikey) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Your Scribe API Key is Empty. Please ') . l(t('configure the Scribe Content Optimizer plugin.'), 'admin/settings/scribeseo'), 'error'); 
+    return FALSE;
+  }
+  
+  // return basics if cache option selected and cache exists
+  if ($context['inputs']['analyzer_options']['scribeseo']['usecache']) {
+    $optimizer = new EcordiaContentOptimizer($apikey, $usessl);
+    $aid = $context['aid'];
+    
+    if (($context['source'] == 'node-edit-form') && (!$context['nid'])) {
+      $aid = 'add';
+    }
+    $results = scribeseo_cache_get($aid);
+
+    if ($results) {
+      $optimizer->results = $results;
+      return $optimizer;
+    }    
+  }
+
+  $page_title = scribeseo_sanitize_for_call(stripslashes($context['page_title']));
+  
+  $body = $context['body'];
+  $body = iconv($charset, "utf-8", $body);
+  $body_notags = scribeseo_sanitize_for_call(stripslashes($context['body_notags']));
+  $body_notags = iconv($charset, "utf-8", $body_notags);
+  
+  $check_meta = TRUE;
+
+  if (!is_null($context['meta_description'])) {
+    $meta_description = scribeseo_sanitize_for_call(strtolower(strip_tags($context['meta_description'])));
+  } 
+  if (!$meta_description) {
+    if (variable_get('scribeseo_altdescription', 'node_teaser') == 'first_body_sentence') {
+      $meta_description = preg_replace('/(.*?[?!.](?=\s|$)).*/', '\\1', $body_notags); // select first sentance of body if not in contenxt;
+    } 
+    elseif (variable_get('scribeseo_altdescription', 'node_teaser') == 'node_teaser') {
+      $meta_description = node_teaser($body_notags);
+    }
+  }
+  $url = $context['url'];
+  
+  if (!$page_title) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Required field page title missing. Please enter a title. Analysis not submitted.'), 'error'); 
+    return FALSE;
+  }
+  if (!$meta_description) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Required field meta description missing. Please enter a description or set a default description in Meta Tags. Analysis not submitted.'), 'error'); 
+    return FALSE;
+  }
+  if (!$body) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Required field body missing. Please enter body copy. Analysis not submitted.'), 'error'); 
+    return FALSE;
+  }
+  if (!$url) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Required field url missing. Analysis not submitted.'), 'error'); 
+    return FALSE;
+  }
+
+  $optimizer = new EcordiaContentOptimizer($apikey, $usessl);
+  $optimizer->GetAnalysis($page_title, $meta_description, $body, $url);
+  if ($optimizer->hasError()) {
+    //drupal_set_message("Scribe SEO: ".$optimizer->getErrorMessage(),'error');
+    $analysis['messages'][] = contentanalysis_format_message("Scribe SEO: " . $optimizer->getErrorMessage(), 'error');
+    //$results['message'] = __('Analysis Failure');
+    //$results['extended'] = $optimizer->getErrorMessage();
+    return FALSE;
+  } 
+  if (!$optimizer->results['GetAnalysisResult']['Analysis']['SeoScore']) {
+    $analysis['messages'][] = contentanalysis_format_message(t("Scribe SEO API did not return a valid analysis."), 'error');
+    return FALSE;
+  }
+  $aid = $context['aid'];
+  if (($context['source'] == 'node-edit-form') && (is_null($context['nid']))) {
+    $aid = 'add';
+  }
+  scribeseo_cache_set($aid, $optimizer->results);
+  // update credits remaining
+  if (variable_get('scribeseo_apikey', '')) {
+    $userAccountAccess = scribeseo_getUserInfo();
+    $userAccountData = $userAccountAccess->results['GetAccountStatusResult'];
+    if (!$userAccountData) {
+      //drupal_set_message(t('Unable to communicate with Scribe server.'),'warning');
+    } 
+    elseif ($userAccountData['Exception']['Type']) {
+      //drupal_set_message($userAccountData['Exception']['Message'] . "(type " . $userAccountData['Exception']['Type'] . ")",'warning');
+    } 
+    else {
+      $accountStatus = $userAccountData['AccountStatus'];
+      variable_set('scribeseo_credits', array('remaining' => $accountStatus['CreditsRemaining'], 'time' => time()));
+    }
+  }  
+  scribeseo_update_kwresearch_searches_ratio();
+  
+  return $optimizer;
+}
+
+function scribeseo_get_keyword_alternates_report_js() {
+  
+  $keyword = stripslashes($_POST['keyword']);
+  
+  $info = scribeseo_get_keyword_alternates($keyword);
+  
+  $keywordAlternates = $info['GetKeywordAlternatesResult']['AlternateKeywords']['Keyword'];
+  
+  $output['output'] = scribeseo_get_keyword_alternates_table($keyword, $keywordAlternates);
+  
+  drupal_json($output);  
+}
+
+function scribeseo_get_keyword_alternates($keyword, $analysis = NULL) {
+  $apikey = variable_get('scribeseo_apikey', '');
+  $usessl = variable_get('scribeseo_usessl', 'http');
+  if (!$apikey) {
+    $analysis['messages'][] = contentanalysis_format_message(t('Your Scribe API Key is Empty. Please ') . l(t('configure the Scribe Content Optimizer plugin.'), 'admin/settings/scribeseo'), 'error'); 
+    return FALSE;
+  }
+  
+  if (!scribeseo_include_api_classes($analysis)) {
+    return FALSE;
+  }
+  
+  $keywords = new EcordiaKeywordAlternates($apikey, $usessl);
+  $keywords->GetAlternateKeywords($keyword);
+
+  if ($keywords->hasError()) {
+    // TODO error reporting here 
+    return FALSE;
+  }  
+  $info = $keywords->getRawResults();
+  
+  return $info;
+}
+
+function scribeseo_get_keyword_alternates_table($keyword, $keywordAlternates) {
+  $denom = $keywordAlternates[0]['AnnualSearchVolume'];
+  $hdrs = array(
+    t('Alternate Keyword Suggestions'),
+    t('Relative Search Frequency')
+  );
+  $rows = array();
+  foreach ($keywordAlternates as $alternate) {
+    $width = ceil($alternate['AnnualSearchVolume'] / $denom * 100);
+    $vol = (int)$alternate['AnnualSearchVolume'];
+    if($r = variable_get('scribeseo_kwresearch_searches_ratio', 8.31)) {
+      $vol *= $r;
+    }    
+    $rows[] = array(
+      array(
+        'data' => '<span class="kwresearch_keyword">' . check_plain($alternate['Term']) . '</span>',
+      ),
+      array(
+        //'data' => '<div class="scribe-alternate-keyword-relative-search-volume" style="width: ' . $width . '%;">' . check_plain($alternate['AnnualSearchVolume']) . '</div>',
+        'data' => '<div class="scribe-alternate-keyword-relative-search-volume" style="width: ' . $width . '%;">' . $vol . '</div>',
+        'class' => 'search-volume',
+      )
+    );        
+  }
+  $attr = array(
+    'id' => 'scribe-content-keyword-table-' . check_plain(str_replace(' ', '-', $keyword)),
+    'class' => "alternate-keywords-table"
+  );
+  $output = theme_table($hdrs, $rows, $attr);
+  return $output;
+}
+
+function scribeseo_cache_get($aid) {
+  if (!is_numeric($aid)) {
+    if (is_array($_SESSION['scribeseo']['cache'][$aid])) {
+      $results = unserialize($_SESSION['scribeseo']['cache'][$aid]['data']);
+      $results['GetAnalysisResult']['Cache'] = array(
+        'Created' => $_SESSION['scribeseo']['cache'][$aid]['created'],
+        'Score' => $_SESSION['scribeseo']['cache'][$aid]['score'],
+        'PrimaryKeywords' => $_SESSION['scribeseo']['cache'][$aid]['primary_keywords'],
+        'Keywords' => $_SESSION['scribeseo']['cache'][$aid]['keywords'],
+      ); 
+      return $results;
+    }
+    else {
+      return FALSE;
+    }
+  }
+  $sql = '
+    SELECT * 
+    FROM {scribeseo_cache}
+    WHERE aid = %d
+  ';
+  if (!$row = db_fetch_object(db_query($sql, $aid))) {
+    return FALSE;
+  }
+  $results = unserialize($row->data);
+  if (is_array($results) && is_array($results['GetAnalysisResult'])) {
+    $results['GetAnalysisResult']['Cache'] = array(
+      'Created' => $row->created,
+      'Score' => $row->score,
+      'PrimaryKeywords' => $row->primary_keywords
+    );  
+  }
+  else {
+    return array();
+  }
+  return $results;
+}
+
+function scribeseo_cache_set($aid, $optimizer_results) {
+  $primary_keywords = '';
+  $score = $optimizer_results['GetAnalysisResult']['Analysis']['SeoScore']['Score']['Value'];
+  if ($optimizer_results['GetAnalysisResult']['Analysis']['PrimaryKeywords']['Keywords']['Keyword']) {
+    foreach ($optimizer_results['GetAnalysisResult']['Analysis']['PrimaryKeywords']['Keywords']['Keyword'] AS $v) {
+      if ($v['Rank'] == 'Primary') {
+        $primary_keywords .= (($primary_keywords)?',':'') . $v['Term'];
+      }
+      $keywords .= (($keywords)?',':'') . $v['Term'];
+    }
+  }
+  if (is_numeric($aid)) {
+    $sql = '
+      DELETE FROM {scribeseo_cache}
+      WHERE aid = %d
+    ';
+    db_query($sql, $aid);
+
+    $sql = '
+      INSERT INTO {scribeseo_cache}
+      (aid, created, score, primary_keywords, keywords, data)
+      VALUES (%d,%d,%d,"%s","%s","%s")
+    ';
+    $data = serialize($optimizer_results);
+    $data = scribeseo_clean_optimzier_results($data);
+    db_query($sql, $aid, time(), $score, $primary_keywords, $keywords, $data);
+  }
+  // save to session if no aid is available (used for node add form)
+  else {    
+    $data = serialize($optimizer_results);
+    // clean up special characters that can not be saved to $_SESSION
+    $data = scribeseo_clean_optimzier_results($data);
+    //$data = utf8_encode($data);           
+    //$data = preg_replace( '!s:(\d+):"(.*?)";!se', "'s:'.strlen('$2').':\"$2\";'", $data ); 
+    $_SESSION['scribeseo']['cache'][$aid] = array(
+      'created' => time(),
+      'score' => $score,
+      'primary_keywords' => $primary_keywords,
+      'keywords' => $keywords,
+      'data' => $data,
+    );
+  }
+  
+  return TRUE;
+}
+
+function scribeseo_clean_optimzier_results($data) {
+    $data = utf8_encode($data);           
+    $data = preg_replace( '!s:(\d+):"(.*?)";!se', "'s:'.strlen('$2').':\"$2\";'", $data ); 
+    return $data;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Add Content Optimizer field set to node edit forms.
+ */
+function scribeseo_form_alter(&$form, $form_state, $form_id) {
+  //print $form_id;
+  if ($form_id == 'node_admin_content') {
+    $options = variable_get('scribeseo_node_admin_form_options', array('score'));
+    // exit if no options set
+    if (count($options) == 0) {
+      return;
+    }
+    // no nodes exist, so exit
+    if (!is_array($form['admin']['title'])) {
+      return;
+    }
+    drupal_add_css(drupal_get_path('module', 'scribeseo') . '/scribeseo.css'); 
+    drupal_add_js(drupal_get_path('module', 'scribeseo') . '/scribeseo.js');
+    
+    if ($options['score']) {
+      $th .= '<th>Score</th>';
+    }
+    if ($options['primarykeyword']) {
+      $th .= '<th>Keyword</th>';
+    }
+    
+    $nodes = array();
+    $keywords = array();
+    $form['admin']['seoscore'] = array();
+    foreach ($form['admin']['title'] AS $k => $v) {
+      $nodesstr .= (($nodesstr) ? ',':'') . $k;
+      if ($options['score']) {
+        $nodes[$k] .= '<td class="scribeseo_node_admin_form_score status">NA</td>';
+      }
+      if ($options['primarykeyword']) {
+        $nodes[$k] .= '<td class="scribeseo_node_admin_form_keyword">NA</td>';
+      }
+    }
+    $sql = '
+      SELECT s.score, s.primary_keywords, c.nid
+      FROM {scribeseo_cache} s
+      JOIN {contentanalysis} c ON s.aid = c.aid
+      WHERE c.nid IN (%s)
+    ';
+    
+    $result = db_query($sql, $nodesstr);
+    while ($row = db_fetch_object($result)) {
+      $nodes[$row->nid] = '';
+      if ($options['score']) {
+        $status = 'error';
+        if (!is_numeric($row->score)) {
+          continue;
+        }
+        if ($row->score > 75) {
+          $status = 'complete';
+        } 
+        elseif ($row->score > 50) {
+          $status = 'warning';
+        }
+        $nodes[$row->nid] .= '<td class="scribeseo_node_admin_form_score ' . $status . '">' . $row->score . '%</td>';
+      }
+      if ($options['primarykeyword']) {
+        $nodes[$row->nid] .= '<td class="scribeseo_node_admin_form_keyword">' . str_replace(',', ', ', $row->primary_keywords) . '</td>';
+      }    
+    
+    }
+    
+    drupal_add_js(
+      array('scribeseo' => array(
+        'node_admin_content_form' => 1,
+        'th' => $th,
+        'nodes' => $nodes,
+      )), 
+    'setting');   
+  }  
+}
+
+
+define('ECORDIA_DEBUG', FALSE);
+
+function scribeseo_include_api_classes(&$analysis = NULL) {
+  if (!file_exists(drupal_get_path('module', 'scribeseo') . '/lib/ecordia-access/nusoap/nusoap.php')) {
+    $msg = t('NuSOAP class is missing. Please <a href="http://sourceforge.net/projects/nusoap/files/" target="nusoap">download the NuSOAP archive files</a> and install them in the directory @directory',
+      array(
+        '@directory' => base_path() . drupal_get_path('module', 'scribeseo') . '/lib/ecordia-access/nusoap/'
+      )
+    );
+    if ($analysis) {
+      $analysis['messages'][] = contentanalysis_format_message($msg, 'error'); 
+    }
+    else {
+      drupal_set_message($msg);
+    }
+    return FALSE;
+  }
+  include_once(drupal_get_path('module', 'scribeseo') . '/lib/ecordia-access/ecordia-content-optimizer.class.php');
+  include_once(drupal_get_path('module', 'scribeseo') . '/lib/ecordia-access/ecordia-user-account.class.php');
+  include_once(drupal_get_path('module', 'scribeseo') . '/lib/ecordia-access/ecordia-keyword-alternates.class.php');
+
+  return TRUE;
+}
+
+function scribeseo_getUserInfo($live = FALSE) {
+  if (!scribeseo_include_api_classes()) {
+    return FALSE;
+  }
+  $apikey = variable_get('scribeseo_apikey', '');
+  if (!$apikey) {
+    drupal_set_message(t('Must set API Key'));
+    return FALSE;
+  }
+  $apikey = variable_get('scribeseo_apikey', '');
+  $usessl = variable_get('scribeseo_usessl', 'http');
+
+  $userAccountAccess = new EcordiaUserAccount($apikey, $usessl);
+  $userAccountAccess->UserAccountStatus();
+
+  return $userAccountAccess;
+}
+
+function scribeseo_sanitize_for_call($value) {
+    return str_replace(array('<![CDATA[',']]>'),array('',''),trim($value));
+}
+
+/**
+ *  Implentation of hook_contentanalysis_analyzers()
+ *  register contentanalysisexample with contentanalysis analyzers registry
+ */
+
+function scribeseo_kwresearch_sources() {
+  $sources['scribeseo'] = array(
+    'title' => t('Scribe'),
+    'module' => 'scribeseo',
+    'stats_callback' => 'scribeseo_kwresearch_get_keyword_stats',
+    'searches_ratio' => variable_get('scribeseo_kwresearch_searches_ratio', 8.31), // ratio = total daily searches / count from data
+    'stats_report_columns' => array(
+      'scribe_searches' => t('Scribe count')
+    ),
+    'stats_report_values_callback' => 'scribeseo_kwresearch_format_stats_values',
+  );
+  return $sources;  
+}
+
+function scribeseo_update_kwresearch_searches_ratio() {
+  if(time() > (variable_get('scribeseo_kwresearch_searches_ratio_updated', 0) + 604800)) {
+    // request ratio from kwresearch meta server
+    $apiret = xmlrpc(
+      'http://www.leveltendesign.com/xmlrpc.php',
+      'l10seoapi.scribeseo',
+      'searches_ratio',
+      variable_get('scribeseo_kwresearch_searches_ratio', 8.31)
+    );  
+    if(is_numeric($apiret) && $apiret > 0) {
+        variable_set('scribeseo_kwresearch_searches_ratio', (float)$apiret); 
+    }   
+    variable_set('scribeseo_kwresearch_searches_ratio_updated', time());
+  }
+  return $apiret;
+}
+
+function scribeseo_kwresearch_get_keyword_stats($keywords, $params = NULL) {
+  list($keyword) = explode(',', $keywords);
+  $keyword = stripslashes($keyword);
+  
+  $info = scribeseo_get_keyword_alternates($keyword);
+  
+  $keywordAlternates = $info['GetKeywordAlternatesResult']['AlternateKeywords']['Keyword'];
+
+  if(empty($keywordAlternates)) {
+    return FALSE;
+  }
+  
+  $apiret = array();
+
+  foreach ($keywordAlternates as $alternate) {
+    $apiret[strtolower($alternate['Term'])]['searches'] = $alternate['AnnualSearchVolume'];
+  }
+  
+  return $apiret;
+}
+
+function scribeseo_kwresearch_format_stats_values($values, $keyword='', $type = 'term') {
+  switch($type) {
+    case 'scribe_searches':
+      if($values['scribeseo_searches'] > 0) {
+        $output = ($values['scribeseo_searches']=='NA') ? 'NA': number_format($values['scribeseo_searches']);
+      }
+      else {
+        $output = $values['scribeseo_searches'];
+      }
+      break;
+    default:
+      return FALSE;
+  }  
+  return $output;
+}
+
+function scribeseo_util() {
+  $ret = 'ok';
+
+  return $ret;
+}

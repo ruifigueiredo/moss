@@ -1,0 +1,72 @@
+<?php
+// $Id: scribeseo.install,v 1.1.2.8 2010/09/26 00:43:12 tomdude48 Exp $
+/**
+ * @file
+ * Install file.
+ */
+
+/**
+ *  Implementation of hook_install().
+ */
+function scribeseo_install() {
+  drupal_install_schema('scribeseo');
+  drupal_set_message(t('Scribe SEO has been installed.')); 
+  if (!variable_get('scribeseo_apikey', '')) {
+    drupal_set_message(t('Your Scribe API Key is Empty. Please ') . l(t('configure the Scribe Content Optimizer plugin.'), 'admin/settings/scribeseo'), 'error'); 
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function scribeseo_uninstall() {
+  drupal_uninstall_schema('scribeseo');
+  drupal_set_message(t('Scribe SEO has been uninstalled.'));  
+}
+
+/**
+ *  Implementation of hook_schema
+ */
+function scribeseo_schema() {
+  $schema['scribeseo_cache'] = array(
+    'description' => t('Creates database table for content analysis settings.'),
+    'fields' => array(
+      'aid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('The id for the analysis.'),  
+      ), //aid
+      'created' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('The unix time the recored was created.'),  
+      ), //created
+      'score' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('SEO score.'),  
+      ), //score
+      'primary_keywords' => array(
+        'type' => 'text',
+        'description' => t('Comma seperated list of primary keywords'),  
+      ), //primary_keywords
+      'keywords' => array(
+        'type' => 'text',
+        'description' => t('Comma seperated list of keywords'),  
+      ), //keywords
+      'data' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'default' => '',
+        'description' => t('Cached data.'),  
+      ), //title  
+    ),
+    'primary key' => array('aid'),
+  ); 
+  return $schema;
+}

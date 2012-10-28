@@ -1,0 +1,117 @@
+<?php
+// $Id: w3canalyzer.module,v 1.3 2010/05/09 19:44:32 tomdude48 Exp $
+
+/**
+ * @file
+ * Analyzes node content for search engine optimization recommendations
+ */
+
+/**
+ *  Implementation of hook_contentalalysis_analyzers()
+ *  
+ */
+function w3canalyzer_menu() {
+  $items = array();
+ 
+  return $items;
+}
+
+/*
+ *  register readability with readability analyzers
+ */
+function w3canalyzer_contentanalysis_analyzers() {
+  $analyzers['w3canalyzer'] = array(
+    'title' => t('W3C Validator'),
+    'module' => 'w3canalyzer',
+    'callback' => 'w3canalyzer_analyzer',
+    'weight' => -5,
+  ); 
+  return $analyzers;  
+}
+
+/**
+ * Implementation of hook_contentanalysis_analyzer() via custom define callback
+ * 
+ * Passes url to w3c_validator module for validation then formats response for 
+ * content analysis report
+ * 
+ * @rerturn array
+ *   SEO analysis
+ */
+function w3canalyzer_analyzer($context, $analysis, $params) {
+  if (!$context['url']) {
+    $analysis['messages'][] = contentanalysis_format_message(t('W3C validation requires a URL to validate.'));
+    return $analysis;
+  }
+  
+  $analysis['content'][] = contentanalysis_format_content(t('Status'), -10, TRUE);
+  $analysis['content'][] = contentanalysis_format_content(t('URL: %url', array('%url' => $context['url'])), -5);
+  
+  $result = _w3c_validator_validate_uri($context['url']);
+  
+  if (is_null($result['validity'])) {
+    $analysis['messages'][] = contentanalysis_format_message(t('The validator API did not return a proper response.'), 'error'); 
+    return $analysis;
+  }
+
+  $error_cnt = count($result['errors']);
+  $warning_cnt = count($result['warnings']);
+  if ($result['validity'] == 'true') {
+    $status = 'complete';
+    $analysis['messages'][] = contentanalysis_format_message(t('Passed validation.'), $status);
+  } 
+  else {
+    $status = ($error_cnt > 50)?'error':'warning';
+    $msg_args = array(
+      '!errors' => format_plural($error_cnt, '1 error', '@count errors'),
+      '!warnings' => format_plural($warning_cnt, '1 warning', '@count warnings')
+    );
+    $msg = t('Failed validation. There are !errors and !warnings.', $msg_args);
+    $analysis['messages'][] = contentanalysis_format_message($msg, $status);
+  }
+  $analysis['#status'] = $status;
+
+  $header = array(
+    array('data' => t('Line')), 
+    array('data' => t('Col')), 
+    array('data' => t('Message')), 
+  );
+  $rows = array();
+  if (is_array($result['errors']) && (count($result['errors']) > 0)) {
+    foreach ($result['errors'] AS $k => $v) {
+      $r = array(
+        array('data' => $v['line']), 
+        array('data' => $v['col']),
+        array('data' => $v['message']),
+      ); 
+      $rows[] = $r;
+    }
+    $out = theme_table($header, $rows, array('class' => 'w3canalyzer_errors'));
+  } 
+  else {
+    $out = t('No errors reported.');
+  } 
+  
+  $analysis['content'][] = contentanalysis_format_content(t('Errors'), 10, TRUE);
+  $analysis['content'][] = contentanalysis_format_content($out, 11);
+  
+  $rows = array();
+  if (is_array($result['warnings']) && (count($result['warnings']) > 0)) {
+    foreach ($result['warnings'] AS $k => $v) {
+      $r = array(
+        array('data' => $v['line']), 
+        array('data' => $v['col']),
+        array('data' => $v['message']),
+      ); 
+      $rows[] = $r;
+    }
+    $out = theme_table($header, $rows, array('class' => 'w3canalyzer_errors'));
+  } 
+  else {
+    $out = t('No warnings reported.');
+  }
+  $analysis['content'][] = contentanalysis_format_content(t('Warnings'), 20, TRUE);
+  $analysis['content'][] = contentanalysis_format_content($out, 21);
+  
+  return $analysis;
+}

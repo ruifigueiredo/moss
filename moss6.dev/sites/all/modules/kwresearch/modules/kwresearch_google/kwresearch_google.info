@@ -1,0 +1,26 @@
+; $Id: kwresearch_google.info,v 1.1.2.8 2011/01/05 20:42:59 tomdude48 Exp $
+name = "Keyword Research Google"
+description = "Provides integration of Google AdWords Keyword Tool data for Keyword Research."
+package = Keyword Research
+dependencies[] = kwresearch
+core = 6.x
+; Information added by drupal.org packaging script on 2011-01-05
+version = "6.x-1.0-rc6"
+core = "6.x"
+project = "kwresearch"
+datestamp = "1294260379"
+
+
+; Information added by drupal.org packaging script on 2011-02-26
+version = "6.x-1.0-rc7"
+core = "6.x"
+project = "kwresearch"
+datestamp = "1298752867"
+
+
+; Information added by drupal.org packaging script on 2011-11-04
+version = "6.x-1.0"
+core = "6.x"
+project = "kwresearch"
+datestamp = "1320366332"
+

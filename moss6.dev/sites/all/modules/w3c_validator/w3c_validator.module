@@ -1,0 +1,322 @@
+<?php
+// $Id: w3c_validator.module,v 1.1.2.3 2009/12/22 10:00:56 pl2 Exp $
+
+/**
+ * @file
+ * W3C Validator proxy.
+ *
+ * TODO: Refactor some output using theme functions.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function w3c_validator_menu() {
+  $items = array();
+
+  $items['admin/settings/w3c_validator'] = array(
+    'title' => 'W3C Validator',
+    'description' => 'Settings for the W3C validator API.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('w3c_validator_admin_settings'),
+    'access arguments' => array('administer w3c_validator'),
+    'file' => 'w3c_validator.pages.inc',
+  );
+
+  $items['validator'] = array(
+    'title' => 'Validate URI',
+    'description' => 'Validate URI using the W3C Validator API',
+    'page callback' => 'w3c_validator_validate_uri_page',
+    'access arguments' => array('use w3c_validator'),
+    'file' => 'w3c_validator.pages.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function w3c_validator_perm() {
+  return array('administer w3c_validator', 'use w3c_validator');
+}
+
+/**
+ * Static storage for the result.
+ *
+ * @param string $uri
+ * @param string $result
+ * @return void
+ */
+function _w3c_validator_set_validation_result($result = NULL) {
+  static $stored_result;
+
+  if ($result) {
+    $stored_result = $result;
+  }
+
+  return $stored_result;
+}
+
+/**
+ * Get stored result.
+ *
+ * @return void
+ */
+function _w3c_validator_get_validation_result() {
+  return _w3c_validator_set_validation_result();
+}
+
+/**
+ * Validate a URI using the configured validator endpoint.
+ *
+ * @param string $uri
+ * @return void
+ */
+function _w3c_validator_validate_uri($uri) {
+  $method = variable_get('w3c_validator_method', 'w3c_markup_validator');
+
+  $tidy_available = function_exists('tidy_get_output');
+  if (!$tidy_available) {
+    $method = 'w3c_markup_validator';
+  }
+
+  $function = '_w3c_validator_validate_uri_'. $method;
+  if (function_exists($function)) {
+    return $function($uri);
+  }
+
+  drupal_set_message(t('Validation callback not found. Something is misconfigured on the W3C validator module.'));
+}
+
+/**
+ * Implementation of hook_init().
+ *
+ * If the token is found in the request headers it's compared the the ones stored in DB.
+ */
+function w3c_validator_init() {
+  global $user;
+
+  $allow_auth = variable_get('w3c_validator_tidy_authenticated', FALSE);
+  if (!$allow_auth) {
+    return;
+  }
+
+  if (!empty($_SERVER['HTTP_W3C_VALIDATOR_TOKEN'])) {
+    $token = check_plain($_SERVER['HTTP_W3C_VALIDATOR_TOKEN']);
+
+    watchdog('w3c_validator_site', t('Request to validate private page !url using token @token', array('!url' => url($_GET['q'], array('absolute' => TRUE)), '@token' => $token)));
+
+    if ($data = db_fetch_object(db_query("SELECT * FROM {validator_access_tokens} WHERE token = '%s'", $token))) {
+      db_query("DELETE FROM {validator_access_tokens} WHERE token = '%s'", $token);
+
+      $expected_token = md5(url($_GET['q'], array('absolute' => TRUE)) . $data->timestamp . $data->rand . $data->uid);
+      watchdog('w3c_validator_site', t('Expected token @expected got @token', array('@expected' => $expected_token, '@token' => $token)));
+
+      // Do not accept tokens that were created more than 5 seconds ago
+      if ((time() - $data->timestamp) > 5) {
+        watchdog('w3c_validator_site', t('Validation access denied, token expired.'));
+        return;
+      }
+
+      if ($expected_token == $token) {
+        watchdog('w3c_validator_site', t('Validation access granted as user %uid to path %path', array('%uid' => $data->uid, '%path' => $_GET['q'])));
+        $user = user_load($data->uid);
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_cron().
+ */
+function w3c_validator_cron() {
+  // Clean possible lost tokens
+  $time = time() - 5;
+  db_query("DELETE FROM {validator_access_tokens} WHERE timestamp < %d", $time);
+}
+
+/**
+ * Create and store a token to allow access for the http request used for validation.
+ */
+function w3c_validator_create_access_token($uri) {
+  global $user;
+
+  $time = time();
+  $rand = mt_rand();
+  $token = md5($uri . $time . $rand . $user->uid);
+
+  $allow_auth = variable_get('w3c_validator_tidy_authenticated', FALSE);
+  if ($allow_auth) {
+    db_query("INSERT INTO {validator_access_tokens} (token, timestamp, rand, uid) VALUES ('%s', %d, %d, %d)", $token, $time, $rand, $user->uid);
+  }
+
+  return $token;
+}
+
+/**
+ * Validate a url using tidy library method.
+ */
+function _w3c_validator_validate_uri_tidy($uri) {
+  if (empty($uri)) {
+    return FALSE;
+  }
+
+  // Create a token for this request
+  $token = w3c_validator_create_access_token($uri);
+
+  // The token is used as a header to allow validation of authenticated pages, see hook_init
+  $response = drupal_http_request($uri, array('w3c-validator-token' => $token));
+
+  $html = $response->data;
+
+  $config = array(
+   // 'input-xml' => TRUE,
+  );
+
+  $tidy = new tidy();
+  $tidy->parseString($html, $config);
+
+  $tidy->diagnose();
+
+  preg_match_all('/^(?:line (\d+) column (\d+) - )?(\S+): (?:\[((?:\d+\.?){4})]:)?(.*?)$/m', $tidy->errorBuffer, $tidy_errors, PREG_SET_ORDER);
+
+  $error_array = array();
+  $warning_array = array();
+  foreach ($tidy_errors as $tidy_error) {
+    $data = array(
+      'line' => $tidy_error[1],
+      'col' => $tidy_error[2],
+      'message' => $tidy_error[5],
+    );
+
+    if ($tidy_error[3] == 'Error') {
+      $error_array[] = $data;
+    }
+    elseif ($tidy_error[3] == 'Warning') {
+      $warning_array[] = $data;
+    }
+  }
+
+  $result = array(
+    'uri' => $uri,
+    'doctype' => '',
+    'validity' => (empty($error_array) && empty($warning_array)) ? 'true' : 'false',
+    'errors' => $error_array,
+    'warnings' => $warning_array,
+    'response' => $response,
+  );
+
+  return $result;
+}
+
+/**
+ * Validate a url using w3c validator method.
+ */
+function _w3c_validator_validate_uri_w3c_markup_validator($uri) {
+  if (empty($uri)) {
+    return FALSE;
+  }
+
+  $endpoint = variable_get('w3c_validator_api_endpoint_uri', 'http://validator.w3.org/check');
+  if (empty($endpoint)) {
+    return FALSE;
+  }
+
+  // Build url
+  $check_url = $endpoint .'?uri='. urlencode($uri) .'&output=soap12';
+
+  // Get and parse response
+  $xml = file_get_contents($check_url);
+  $dom = new DOMDocument();
+  $dom->loadXML($xml);
+
+  // Validity
+  $validity = $dom->getElementsByTagName("validity");
+  foreach ($validity as $key => $value) {
+    $validity_value = $value->nodeValue;
+  }
+
+  // Errors
+  $errors = $dom->getElementsByTagName("error");
+  $error_array = array();
+  foreach ($errors as $key => $value) {
+    $line = $value->getElementsByTagName('line')->item(0)->nodeValue;
+    $col = $value->getElementsByTagName('col')->item(0)->nodeValue;
+    $message = $value->getElementsByTagName('message')->item(0)->nodeValue;
+
+    $error_array[] = array(
+      'line' => $line,
+      'col' => $col,
+      'message' => $message,
+      );
+  }
+
+  // Warnings
+  $warnings = $dom->getElementsByTagName("warning");
+  $warning_array = array();
+  foreach ($warnings as $key => $value) {
+    $line = $value->getElementsByTagName('line')->item(0)->nodeValue;
+    $col = $value->getElementsByTagName('col')->item(0)->nodeValue;
+    $message = $value->getElementsByTagName('message')->item(0)->nodeValue;
+
+    $warning_array[] = array(
+      'line' => $line,
+      'col' => $col,
+      'message' => $message,
+      );
+  }
+
+  // Doctype
+  $doctype = $dom->getElementsByTagName('doctype')->item(0)->nodeValue;
+
+  $result = array(
+    'uri' => $uri,
+    'doctype' => $doctype,
+    'validity' => $validity_value,
+    'errors' => $error_array,
+    'warnings' => $warning_array,
+    );
+
+  return $result;
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function w3c_validator_help($path, $arg) {
+  switch ($path) {
+  }
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function w3c_validator_requirements($phase) {
+  $requirements = array();
+
+  if ($phase == 'runtime' && (variable_get('w3c_validator_method', 'w3c_markup_validator') == 'w3c_markup_validator')) {
+    $endpoint = variable_get('w3c_validator_api_endpoint_uri', 'http://validator.w3.org/check');
+
+    $severity = REQUIREMENT_OK;
+    $description = '';
+
+    if ($endpoint == 'http://validator.w3.org/check') {
+      $severity = REQUIREMENT_ERROR;
+      $description = t('W3C Validator module is configured to use the official W3C validator API endpoint. You should <a href="!url">change the onfiguration</a> to point to your own instance of the validator, using the official endpoint intensively could be considered abuse of service. See the module documentation on how to install your own instance of the validator.', array('!url' => url('admin/settings/w3c_validator')));
+    }
+    else if (empty($endpoint)) {
+      $severity = REQUIREMENT_ERROR;
+      $description = t('W3C Validator module is not configured to use a proper API endpoint. You should <a href="!url">change the onfiguration</a> to point to your own instance of the validator, using the official endpoint intensively could be considered abuse of service. See the module documentation on how to install your own instance of the validator.', array('!url' => url('admin/settings/w3c_validator')));
+    }
+
+    $requirements['w3c_validator'] = array(
+      'title' => t('W3C Validator endpoint'),
+      'value' => $endpoint,
+      'description' => $description,
+      'severity' => (($endpoint == 'http://validator.w3.org/check') ? REQUIREMENT_ERROR : (empty($endpoint) ? REQUIREMENT_WARNING : REQUIREMENT_OK)),
+    );
+  }
+
+  return $requirements;
+}

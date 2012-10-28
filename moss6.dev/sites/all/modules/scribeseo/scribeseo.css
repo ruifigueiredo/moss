@@ -1,0 +1,183 @@
+/* $Id: scribeseo.css,v 1.1.2.8 2010/09/26 00:43:12 tomdude48 Exp $ */
+@CHARSET "ISO-8859-1";
+
+#scribeseo_tags {
+  border:1px solid #CCCCCC;
+  background-color: #FFFFFF;
+  margin: 10px 10px 10px 10px;
+  padding: 10px 10px 10px 10px;
+}
+#scribeseo_serp {
+  border:1px solid #CCCCCC;
+  background-color: #FFFFFF;
+  margin: 10px 10px 10px 10px;
+  padding: 10px 10px 10px 10px;
+}
+
+#scribeseo_score td {
+  background-color: #FFFFFF;
+}
+
+#scribeseo_score .value {
+  font-size: 3em;
+  color: #333333;
+  text-align: center;
+}
+
+#scribeseo_score .complete {  
+  color: #333333;    
+  background-color: #DDFFAA;  
+}
+
+#scribeseo_score .warning {  
+  color: #333333;  
+  background-color: #FFFFCC;	
+}
+
+#scribeseo_score .error {  
+  color: #333333;  
+  background-color: #FFCCCC;  
+}
+.scribeseo_tags li {
+  display: inline;
+  list-style: none;
+  background: none;
+  margin: 0;
+  padding: 0;
+}
+
+.scribeseo_tags li:after {
+  content: ", ";
+}
+
+.scribeseo_tags li.last:after {
+  content: "";
+}
+#scribeseo_score td:first-child {
+  width: 130px;
+  padding: 15px 0;
+}
+#scribeseo_score td:first-child {
+ text-align: center;
+ line-height: 1.5em;
+ font-size: 4em;
+ padding: 15px;
+}
+#scribeseo_score td.message {
+  padding: 15px;
+}
+
+/* form score */
+
+#scribeseo_form_score {
+  font-size: 2em;
+  color: #333333;
+  text-align: center;
+  width: 80px;
+}
+
+#scribeseo_form_score .complete {  
+  color: #333333;    
+  background-color: #DDFFAA;  
+  border: 1px solid #BBDD88;
+  padding: 5px 5px 5px 5px;
+}
+
+#scribeseo_form_score .warning {  
+  color: #333333;  
+  background-color: #FFFFCC;
+  border: 1px solid #DDDDAA;
+  padding: 5px 5px 5px 5px;	
+}
+
+#scribeseo_form_score .error {  
+  color: #333333;  
+  background-color: #FFCCCC;
+  border: 1px solid #DDAAAA;  
+  padding: 5px 5px 5px 5px;
+}
+
+/* node admin form score */
+
+.scribeseo_node_admin_form_score.complete {  
+  color: #333333;    
+  background-color: #DDFFAA;  
+}
+
+.scribeseo_node_admin_form_score.warning {  
+  color: #333333;  
+  background-color: #FFFFCC;
+}
+
+.scribeseo_node_admin_form_score.error {  
+  color: #333333;  
+  background-color: #FFCCCC;
+}
+
+/* Stuff for Alternate Keyword */
+
+#scribe-content-keywords-container {
+	float: left;
+	width: 98%;
+}
+
+#scribe-content-keywords-container ul li {
+  list-style: none outside none;  
+  margin-left: 0px;
+}
+
+#scribe-content-keywords-container ul {
+  margin: 0 0 0 0;
+}
+
+#scribe-content-keywords-container ul#scribe-content-keywords li {
+  background: none;
+  padding-left: 1px;
+  padding-bottom: 0;
+  margin-left: 0;
+  margin-bottom: 0;
+  display: inline-block;
+}
+#scribe-content-keywords-container li a {
+	display: block;
+	padding: 4px 8px 1px 8px;
+	text-decoration: none;
+  margin-left: 2px;
+  color: #666666;
+  background: #EEEEEE;
+  -moz-border-radius-topleft: 0.5em;
+  -moz-border-radius-topright: 0.5em;
+}
+
+#scribe-content-keywords-container li a:hover {
+  color: red;
+}
+
+#scribe-content-keywords-container li a.active {
+	background: #DBE6DE;
+  color: #333333;
+  border-width: 1px 1px 0;
+  border-color: #DBE6DE;
+  border-style: solid solid none;
+}
+
+#scribe-alternate-keywords {
+	background: #DBE6DE;
+	float: left;
+	min-height: 150px;
+	padding: 4px;
+	width: 98%;
+}
+
+.scribe-alternate-keyword-relative-search-volume {
+	background: #00f;
+	color: #00f;
+	height: 20px;
+}
+
+table.alternate-keywords-table {
+  margin: 0;
+}
+#scribe-content-keywords {
+  padding: 0;
+}

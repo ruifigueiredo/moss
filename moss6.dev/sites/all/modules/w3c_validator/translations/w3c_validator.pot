@@ -1,0 +1,294 @@
+# $Id: w3c_validator.pot,v 1.1.2.2 2009/07/30 12:44:18 pl2 Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  w3c_validator_site.pages.inc,v 1.1 2009/07/28 11:27:19 pl2
+#  w3c_validator.pages.module,v 1.1 2009/07/28 11:27:19 pl2
+#  w3c_validator_site.module,v 1.1.2.1 2009/07/28 13:22:22 pl2
+#  w3c_validator.module,v 1.1 2009/07/28 11:27:19 pl2
+#  w3c_validator.info,v 1.1 2009/07/28 11:27:19 pl2
+#  w3c_validator_site.info,v 1.1 2009/07/28 11:27:19 pl2
+#  w3c_validator_site.install,v 1.1 2009/07/28 11:27:19 pl2
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-07-30 14:40+0200\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: w3c_validator_site.pages.inc:18 w3c_validator.pages.module:52
+msgid "W3C validator hasn't been configured yet. Endpoint must be set before you can use it."
+msgstr ""
+
+#: w3c_validator_site.pages.inc:22 w3c_validator.pages.module:54
+msgid "Configure W3C Validator at the <a href=\"!url\">settings page</a>"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:33
+msgid "Nodes"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:37
+msgid "Views"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:42
+msgid "Validate elements"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:43
+msgid "Type of site elements that will be validated."
+msgstr ""
+
+#: w3c_validator_site.pages.inc:51;207
+msgid "Content types"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:52
+msgid "Node types that will be validated if node validation is requested."
+msgstr ""
+
+#: w3c_validator_site.pages.inc:59 w3c_validator.pages.module:144 w3c_validator_site.module:45
+msgid "Validate"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:88;289
+msgid "Error when trying to create result set. Aborting."
+msgstr ""
+
+#: w3c_validator_site.pages.inc:124;191
+msgid "Date"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:124 w3c_validator.pages.module:71
+msgid "Validation result"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:124;212
+msgid "URL count"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:124;209
+msgid "Invalid results"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:134;220;229 w3c_validator.pages.module:71 w3c_validator_site.module:216
+msgid "Valid"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:134;229 w3c_validator.pages.module:71 w3c_validator_site.module:216
+msgid "Not valid"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:159;173
+msgid "Clean all results"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:174
+msgid "Cleaning all validation results"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:199
+msgid "Validation type"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:209
+msgid "Global validation result"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:209
+msgid "All valid"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:214
+msgid "Error count"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:216
+msgid "Warning count"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:220;310
+msgid "URL"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:220 w3c_validator.pages.module:86 w3c_validator_site.module:216
+msgid "Errors"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:220 w3c_validator.pages.module:106 w3c_validator_site.module:216
+msgid "Warnings"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:220 w3c_validator.pages.module:77
+msgid "Doctype"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:229
+msgid "With warnings"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:244;348 w3c_validator.pages.module:79 w3c_validator_site.module:65
+msgid "Results"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:261
+msgid "Repeat this validation"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:308
+msgid "Results for url %url"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:314
+msgid "This page is valid %doctype_short"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:317
+msgid "This page is not valid %doctype_short"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:320 w3c_validator_site.module:216
+msgid "Result"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:322
+msgid "Revalidate this url"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:326
+msgid "Type"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:326 w3c_validator.pages.module:83;103
+msgid "Line"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:326 w3c_validator.pages.module:83;103
+msgid "Col"
+msgstr ""
+
+#: w3c_validator_site.pages.inc:326 w3c_validator.pages.module:83;103
+msgid "Message"
+msgstr ""
+
+#: w3c_validator.module:41
+msgid "administer w3c_validator"
+msgstr ""
+
+#: w3c_validator.module:41
+msgid "use w3c_validator"
+msgstr ""
+
+#: w3c_validator.module:18 w3c_validator.info:0;0 w3c_validator_site.info:0
+msgid "W3C Validator"
+msgstr ""
+
+#: w3c_validator.module:19
+msgid "Settings for the W3C validator API."
+msgstr ""
+
+#: w3c_validator.module:27
+msgid "Validate URI"
+msgstr ""
+
+#: w3c_validator.module:28
+msgid "Validate URI using the W3C Validator API"
+msgstr ""
+
+#: w3c_validator.module:0
+msgid "w3c_validator"
+msgstr ""
+
+#: w3c_validator.pages.module:20
+msgid "W3C Validator API endpoint URI"
+msgstr ""
+
+#: w3c_validator.pages.module:21
+msgid "URI of the validator script where API call will be targeted. You could use http://validator.w3.org/check althought its not recommended."
+msgstr ""
+
+#: w3c_validator.pages.module:70
+msgid "URI"
+msgstr ""
+
+#: w3c_validator.pages.module:76
+msgid "Validator results"
+msgstr ""
+
+#: w3c_validator.pages.module:99
+msgid "No errors"
+msgstr ""
+
+#: w3c_validator.pages.module:119
+msgid "No warnings"
+msgstr ""
+
+#: w3c_validator.pages.module:137
+msgid "URI of the page to validate"
+msgstr ""
+
+#: w3c_validator.pages.module:138
+msgid "Location (URL) of the webpage that you want to send to the W3C validator."
+msgstr ""
+
+#: w3c_validator.pages.module:0
+msgid "w3c_validator.pages"
+msgstr ""
+
+#: w3c_validator_site.module:23
+msgid ""
+msgstr ""
+
+#: w3c_validator_site.module:25
+msgid "Most recent results are at the top."
+msgstr ""
+
+#: w3c_validator_site.module:127
+msgid "Validating"
+msgstr ""
+
+#: w3c_validator_site.module:36
+msgid "Site validator"
+msgstr ""
+
+#: w3c_validator_site.module:37
+msgid "Validates all content in a site."
+msgstr ""
+
+#: w3c_validator_site.module:74;84
+msgid "Result set"
+msgstr ""
+
+#: w3c_validator_site.module:0
+msgid "w3c_validator_site"
+msgstr ""
+
+#: w3c_validator_site.install:28;85;118
+msgid "TODO: please describe this table!"
+msgstr ""
+
+#: w3c_validator_site.install:31;38;44;51;59;67;75;88;95;102;107;121;128;135;141;148;155
+msgid "TODO: please describe this field!"
+msgstr ""
+
+#: w3c_validator.info:0
+msgid "Validate web pages using the API form the W3C Markup Validator"
+msgstr ""
+
+#: w3c_validator_site.info:0
+msgid "W3C Validator Site"
+msgstr ""
+
+#: w3c_validator_site.info:0
+msgid "Validates all accesible content of a site"
+msgstr ""
+
