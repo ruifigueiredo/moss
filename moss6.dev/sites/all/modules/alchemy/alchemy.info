@@ -1,0 +1,17 @@
+name = "Alchemy"
+description = "Provides an interface to the Alchemy API service. AlchemyAPI provides content owners and web developers with a rich suite of content analysis and meta-data annotation tools."
+package = Content analysis
+core = 6.x
+; Information added by drupal.org packaging script on 2011-02-26
+version = "6.x-1.0-rc5"
+core = "6.x"
+project = "alchemy"
+datestamp = "1298745666"
+
+
+; Information added by drupal.org packaging script on 2011-03-16
+version = "6.x-1.0-rc6"
+core = "6.x"
+project = "alchemy"
+datestamp = "1300301766"
+

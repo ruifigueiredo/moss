@@ -1,0 +1,20 @@
+name = Autotagging Alchemy support
+package = Autotagging
+description = Access Alchemy keywords for autotagging of content
+dependencies[] = alchemy
+dependencies[] = taxonomy
+dependencies[] = autotagging
+core = 6.x
+; Information added by drupal.org packaging script on 2011-02-26
+version = "6.x-1.0-rc5"
+core = "6.x"
+project = "alchemy"
+datestamp = "1298745666"
+
+
+; Information added by drupal.org packaging script on 2011-03-16
+version = "6.x-1.0-rc6"
+core = "6.x"
+project = "alchemy"
+datestamp = "1300301766"
+

@@ -1,0 +1,128 @@
+<?php
+/*
+ * @file alchemy_autotagging.module
+ * Alchemy support for autotagging module.
+ */
+
+/** 
+ * implementation of hook_autotagging_api_register 
+ */
+function alchemy_autotagging_autotagging_api_register() {
+  return array('alchemy' => 'Alchemy');
+}
+/** 
+ * implementation of hook_autotagging_api_update 
+ */
+function alchemy_autotagging_autotagging_api_update(&$node, &$text) {
+  return alchemy_autotagging_autotagging_api_insert($node, $text);
+}
+
+/** implementation of hook_autotagging_api_insert */
+function alchemy_autotagging_autotagging_api_insert(&$node, &$text) {
+  if($node) {
+    $nid = $node->nid;
+  }
+  $types = variable_get('alchemy_autotagging_types', alchemy_autotagging_get_types(TRUE));
+
+  $aterms = array();
+  $r_min = variable_get('alchemy_autotagging_relevance_min', 50) / 100;
+  foreach($types AS $type) {
+    $t = alchemy_get_elements($text, $type, 'normalized', $nid, ALCHEMY_DEBUG);
+    if(is_array($t)) {
+      foreach($t as $k => $v) {
+        if($v['relevance'] >= $r_min) {
+          $aterms[$k] = $v;
+        }
+      }      
+    }
+  }
+
+  $terms = array();
+  $vid = variable_get('autotagging_alchemy_vocabulary', '');
+  $global_vid = variable_get('autotagging_global_vocabulary', '');
+  foreach ($aterms AS $v) {
+    if ($vid == '' || $vid == '<none>') {
+      $vid = $global_vid;
+    }
+    if ($vid != '' && $vid != '<none>') {
+      if (!isset($terms[$vid])) {
+        $terms[$vid] = array();
+      }
+      $terms[$vid][] = $v['term'];
+    }
+  }
+  return $terms;
+}
+
+function alchemy_autotagging_autotagging_api_settings() {
+  $form_additions = array();
+  $form_additions['alchemy'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Alchemy Settings'),
+  );
+  $form_additions['alchemy']['alchemy_apikey'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Alchemy API Key'),
+    '#default_value' => variable_get('alchemy_apikey', ''),
+    '#description' => t('You need an API key to use the Alchemy API service. !alchemy_link.',
+      array(
+        '!alchemy_link' => l(t('Get an Alchemy API key here'), 'http://www.alchemyapi.com/api/register.html', array('attributes' => array('target', 'alchemy'))),
+      )
+    )
+  );
+  
+  $options = alchemy_autotagging_get_types();
+  $form_additions['alchemy']['alchemy_autotagging_types'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Term types'), 
+    '#options' => $options,
+    '#default_value' => variable_get('alchemy_autotagging_types', alchemy_autotagging_get_types(TRUE)),
+    '#description' => t('Alchemy provides an array of data it can extract from content. Use the above checkboxes to select which ones you want to be included for autotagging.'),
+  );
+  
+  $form_additions['alchemy']['alchemy_autotagging_relevance_min'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Minimal relevancy'),
+    '#default_value' => variable_get('alchemy_autotagging_relevance_min', 50),
+    '#description' => t('Use this to specify the minimum relevance a phrase must have in order to be included. Set between 0 - 100.'),
+    '#field_suffix' => t('%'),
+    '#size' => 3,
+  );
+
+  $vocabs = taxonomy_get_vocabularies();
+  $vocab_options = array('<none>' => '<none>');
+  foreach ($vocabs as $id => $vocab) {
+    $vocab_options[$vocab->vid] = $vocab->name;
+  }
+
+  $form_additions['alchemy']['alchemy_autotagging_vocabulary'] = array(
+    '#type' => 'select',
+    '#title' => 'Vocabulary for Alchemy Keywords',
+    '#options' => $vocab_options,
+    '#default_value' => variable_get('alchemy_autotagging_vocabulary', ''),
+    '#description' => t('Override the default options for vocabulary assignment.  Leave blank to inherit from global options.'),
+  );
+  return $form_additions;
+}
+
+/**
+ * Generates type options and default settings
+ * @param $defaults
+ */
+function alchemy_autotagging_get_types($defaults = FALSE) {
+  if($defaults) {
+    $types = array(
+      'concepts',
+      'entities',
+      'keywords',
+    );
+  }
+  else {
+    $types = array(
+      'concepts' => t('Concepts'),
+      'entities' => t('Entities'),
+      'keywords' => t('Keywords'),    
+    );
+  }
+  return $types;  
+}
