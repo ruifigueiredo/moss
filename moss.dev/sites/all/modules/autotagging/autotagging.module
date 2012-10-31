@@ -153,11 +153,6 @@ function autotagging_node_insert($node) {
   $insert_hook = 'autotagging_api_node_insert';
   foreach (module_implements($insert_hook) as $module_name) {
     $terms = module_invoke($module_name, $insert_hook, $node, $text);
-#$hook = 'autotagging_api_' . $op;
-#foreach (module_implements($hook) as $module_name) {
-#    $function = $module_name . '_' . $hook;
-#   $terms = $function($node, $text);
-#adicionei foreach TODO: não funciona com a versão php5.3.5
     if ($terms === FALSE) {
       // error occurred processing this node for this service
       if ($ignore_setting == 'Defer') {

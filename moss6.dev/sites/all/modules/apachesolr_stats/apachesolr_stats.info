@@ -1,0 +1,12 @@
+name = Apache Solr statistics
+description = Keeps and reports statistics about Apache Solr usage and performance.
+dependencies[] = apachesolr
+package = Apache Solr
+core = "6.x"
+
+; Information added by drupal.org packaging script on 2011-10-05
+version = "6.x-1.0-beta5"
+core = "6.x"
+project = "apachesolr_stats"
+datestamp = "1317832900"
+
